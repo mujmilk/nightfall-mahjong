@@ -424,8 +424,10 @@ def game(playernum=4, sibari=0):
                     
                 b = pl0.checkall(event.pos)
                 if b != -1:
-                    discarded_tiles.append(players[0]["tiles"][b])
-                    ds0.addtile(players[0]["tiles"][b])
+                    dsh = players[0]["tiles"][b]
+                    print("dsh", dsh)
+                    discarded_tiles.append(dsh)
+                    ds0.addtile(dsh)
                     ds0.drawall(screen)
                     pygame.display.update()
                     del players[0]["tiles"][b]

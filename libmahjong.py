@@ -69,8 +69,8 @@ class TileSprites:
                 self.x -= 33 * 5
                 self.y += 40
             else:
-                #self.x += 33
-                pass
+                self.x += 33
+                #pass
     
     def sort(self):
         for i in range(len(self.tiles)-1):
