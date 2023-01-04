@@ -201,7 +201,7 @@ def menu():
         pygame.draw.rect(screen, (0, 80, 0), san_button)
 
         screen.blit(yon_text, [275, 375])
-        screen.blit(san_text, [275, 510])
+        screen.blit(san_text, [275, 550])
 
         pygame.display.update()
         # イベント処理
@@ -228,24 +228,55 @@ def game(playernum=4, sibari=0):
     # Dragons   : 0, 10, 20 : 白，ハツ，中
     # Winds     : 30, 31, 32, 33 : 東，南，西，北
 
-    players = [] # player, 下家, 対面, 上家
-    scraps = [0]
-    for i in range(playernum):
-        scraps.append(libmahjong.Scrap())
+    img_playertiles = []
 
-    # しーぱい
+    # 毎回ソートして，表示用の配列を別に作る
+
+    # 初期化
+    # 各プレイヤーの手牌. プレイヤー0は自分
+    players = [{"tiles":[], "wind":0, "pung":0, "chow":0, "kong":0} for i in range(playernum)]
+    discarded_tiles = [[] for i in range(playernum)]
+
     wall = [i for i in range(34) for j in range(4)]
-    random.shuffle(wall)
+    #for i in range(34):
+    #    for j in range(4):
+    #        wall.append(i)
+    prevailing_wind = 30 # 東
 
-    # 場風
-    prevailing_wind = 30
-    player_wind = random.randint(30, 30+playernum-1)
+
+    # 親決め testok
+    def choose_dealer(): # sitting_a_seat
+        # →4人の中から一人がサイコロを振る
+        kariton = random.randrange(0, playernum)
+        #print("仮東は", kariton)
+        
+        # ↑の位置にサイコロを表示
+        # サイコロを二個振る
+        dice1 = random.randint(1, 6)
+        dice2 = random.randint(1, 6)
+        #print("サイコロの出目は ", dice1, dice2)
+        karioya = (kariton + dice1 + dice2) % playernum
+        #print("仮親は ", karioya)
+
+        # サイコロを二個振る
+        dice1 = random.randint(1, 6)
+        dice2 = random.randint(1, 6)
+        #print("サイコロの出目は ", dice1, dice2)
+        oya = (karioya + dice1 + dice2) % playernum
+        #print("親は ", oya)
+
+        for i in range(playernum):
+            players[(oya + i) % playernum]["wind"] = 30 + i
     
-    # 配牌
+    choose_dealer()
+    
+    # シャッフル，配牌
+    random.shuffle(wall)
+    # 完全ランダム
     for i in range(playernum):
-        wind = ((player_wind + i) % 10) % playernum + 30
-        players.append(libmahjong.Player(tiles=wall[0:13], pos=i, wind=wind))
-        del wall[0:13]
+        for j in range(13):
+            players[i]["tiles"].append(wall.pop())
+        players[i]["tiles"] = sorted(players[i]["tiles"])
 
     # ドラ決め testok
     bonus_tile = wall.pop()
@@ -261,8 +292,103 @@ def game(playernum=4, sibari=0):
         bonus_tile += 1
     print("ドラは", nanno_koma(bonus_tile))
 
+    scale = 1.0
+
     #開始時アニメーション
     screen.fill((20,20,20))
+
+    # playerのインデックス番号を格納，誰がどこに座っているか
+    seat = [-1 for i in range(4)] # player, 対面, 下家, 上家
+    for i in range(playernum):
+        seat[((players[0]["wind"]-players[i]["wind"])%4)] = i
+    # TODO: playerHandsクラスに含める
+
+
+    # 手牌表示
+    # TODO: libmahjong.pyに移動
+    # 1: playeropen 2: 上家open 3: 対面open 4: 下家open
+    # 5: player     6: 上家     7: 対面     8: 下家
+    def show_tiles(tiles, n):
+        if n == 7: #対面伏せ牌表示
+            n = 6
+            size_x = int(33 * scale)
+            size_y = int(59 * scale)
+
+            x = 300
+            y = 20
+            timgpath = "sysimg/ms/p_bk_5.gif"
+            timg = pygame.image.load(timgpath)
+            timg = pygame.transform.rotozoom(timg, 0, scale) # 拡大，プレビュー用
+        
+            for i in range(len(tiles)): # 定数でいいと思う
+                screen.blit(timg, (x, y))
+                x += size_x
+        elif n == 8: # 下家伏せ牌表示
+            n = 7
+            size_x = int(26 * scale)
+            dy = int(25 * scale)
+
+            x = 800 - size_x - 20 # margin:20
+            y = 200
+            timgpath = "sysimg/ms/p_bk_9.png"
+            timg = pygame.image.load(timgpath)
+            timg = pygame.transform.rotozoom(timg, 0, scale) # 拡大，プレビュー用
+        
+            for i in range(len(tiles)): # 定数でいいと思う
+                screen.blit(timg, (x, y))
+                y += dy
+        elif n == 6: # 上家伏せ牌表示
+            n = 8
+            size_x = int(26 * scale)
+            dy = int(25 * scale)
+
+            x = 20 # margin:20
+            y = 40
+            timgpath = "sysimg/ms/p_bk_8.png"
+            timg = pygame.image.load(timgpath)
+            timg = pygame.transform.rotozoom(timg, 0, scale) # 拡大，プレビュー用
+        
+            for i in range(len(tiles)): # 定数でいいと思う
+                screen.blit(timg, (x, y))
+                y += dy
+        elif n == 5: # player
+            n = 0
+            size_x = 33 # 画像サイズ
+            size_y = 60
+
+            x = 20
+            y = 600 - size_y - 20
+        
+            for t in tiles:
+                timgpath = "sysimg/"+str(n)+"/"+libmahjong.TILES[t]+str(n)+".gif"
+                timg = pygame.image.load(timgpath)
+                #timg = pygame.transform.rotozoom(timg, 0, scale) # 拡大，プレビュー用
+                screen.blit(timg, (x, y))
+                x += size_x
+        else:
+            print("error show_tiles n", file=sys.stderr)
+
+    xy = [(350, 350), (282, 200), (348, 149), (500,200)]
+    
+    # 手牌の表示
+    for i in range(len(seat)):
+        if i == 0:
+            continue
+        if seat[i] == -1:
+            continue
+        show_tiles(players[seat[i]]["tiles"], i+5)
+
+        # 風の表示
+        timgpath = "sysimg/ms/c_"+str(players[seat[i]]["wind"])+"_"+str(i)+".gif"
+        timg = pygame.image.load(timgpath)
+        screen.blit(timg, xy[i])
+    
+    pl0 = libmahjong.TileSprites(players[0]["tiles"], 0, 20, 520)
+    pl0.drawall(screen)
+    ds0 = libmahjong.TileSprites([], 1, 350, 350)
+    
+
+    # プレイヤーの駒の当たり判定追加
 
     text = font.render("GAME", True, (222, 222, 222))
     screen.blit(text, [100, 100])
@@ -270,50 +396,59 @@ def game(playernum=4, sibari=0):
     pygame.display.update()
 
     hand = wall.pop()
-    players[0].add(hand)
-
-    # 手牌の表示
-    for i in range(playernum):
-        players[i].show_tiles(screen)
-    
+    new1 = libmahjong.TileSprite(hand, 0, 600, 500)
+    new1.draw(screen)
     pygame.display.update()
     
     while True:
         clock.tick(30)
 
+
         # 1枚捨てる
+
         # イベント処理
         for event in pygame.event.get():
             if event.type == QUIT:  # 終了イベント
                 liboption.exitgame()
             
             if event.type == MOUSEBUTTONDOWN:
-                # 山から1枚とり、手牌を捨てる
-                discarded_idx = players[0].check_discard(event.pos)
-                if discarded_idx != -1:
-                    players[0].discard_idx(discarded_idx)
-                    players[0].show_tiles(screen)
-                    players[0].show_rivers(screen)
-
+                if new1.check(event.pos):
+                    discarded_tiles.append(hand)
+                    ds0.addtile(hand)
+                    ds0.drawall(screen)
                     pygame.display.update()
-                    
-                    #順番にツモる
-                    for i in range(1, playernum):
-                        hand = wall.pop()
-                        players[i].add(hand)
-                        discard_tile = scraps[i].think(players[i].hands)
-                        players[i].discard(discard_tile)
-
-                    for i in range(1, playernum):
-                        players[i].show_tiles(screen)
-                        players[i].show_rivers(screen)
-                        print(i, players[i].hands.discarded_tiles)
-                    pygame.display.update()
-                    
                     hand = wall.pop()
-                    players[0].add(hand)
-
+                    new1 = libmahjong.TileSprite(hand, 0, 600, 500)
+                    new1.draw(screen)
+                    pygame.display.update()
+                    print(new1.get_tileid())
+                    break
                     
+                b = pl0.checkall(event.pos)
+                if b != -1:
+                    dsh = players[0]["tiles"][b]
+                    print("dsh", dsh)
+                    discarded_tiles.append(dsh)
+                    ds0.addtile(dsh)
+                    ds0.drawall(screen)
+                    pygame.display.update()
+                    del players[0]["tiles"][b]
+                    players[0]["tiles"].append(hand)
+                    players[0]["tiles"] = sorted(players[0]["tiles"])
+                    
+                    pl0.discardtile(b)
+                    pl0.addtile(hand)
+                    pl0.sort()
+                    pl0.drawall(screen)
+                    
+                    pygame.display.update()
+                    hand = wall.pop()
+                    new1 = libmahjong.TileSprite(hand, 0, 600, 500)
+                    new1.draw(screen)
+                    pygame.display.update()
+
+                else:
+                    return
 
 
 # main

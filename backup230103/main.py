@@ -201,7 +201,7 @@ def menu():
         pygame.draw.rect(screen, (0, 80, 0), san_button)
 
         screen.blit(yon_text, [275, 375])
-        screen.blit(san_text, [275, 510])
+        screen.blit(san_text, [275, 550])
 
         pygame.display.update()
         # イベント処理
@@ -228,20 +228,17 @@ def game(playernum=4, sibari=0):
     # Dragons   : 0, 10, 20 : 白，ハツ，中
     # Winds     : 30, 31, 32, 33 : 東，南，西，北
 
-    players = [] # player, 下家, 対面, 上家
-    scraps = [0]
-    for i in range(playernum):
-        scraps.append(libmahjong.Scrap())
 
-    # しーぱい
+    players = [] # player, 下家, 対面, 上家
+
+    # シャッフル，配牌
     wall = [i for i in range(34) for j in range(4)]
     random.shuffle(wall)
 
-    # 場風
-    prevailing_wind = 30
+    prevailing_wind = 30 # 場風 東
     player_wind = random.randint(30, 30+playernum-1)
     
-    # 配牌
+    # 完全ランダム
     for i in range(playernum):
         wind = ((player_wind + i) % 10) % playernum + 30
         players.append(libmahjong.Player(tiles=wall[0:13], pos=i, wind=wind))
@@ -261,8 +258,21 @@ def game(playernum=4, sibari=0):
         bonus_tile += 1
     print("ドラは", nanno_koma(bonus_tile))
 
+    scale = 1.0
+
     #開始時アニメーション
     screen.fill((20,20,20))
+
+    xy = [(350, 350), (282, 200), (348, 149), (500,200)]
+    
+    # 手牌の表示
+    for i in range(playernum):
+        players[i].show_tiles(screen)
+    
+    # プレイヤーの駒の当たり判定追加
+    pl0 = libmahjong.TileSprites(players[0].tiles, 0, 20, 520)
+    pl0.drawall(screen)
+    ds0 = libmahjong.TileSprites([], 1, 350, 350)
 
     text = font.render("GAME", True, (222, 222, 222))
     screen.blit(text, [100, 100])
@@ -270,12 +280,8 @@ def game(playernum=4, sibari=0):
     pygame.display.update()
 
     hand = wall.pop()
-    players[0].add(hand)
-
-    # 手牌の表示
-    for i in range(playernum):
-        players[i].show_tiles(screen)
-    
+    new1 = libmahjong.TileSprite(hand, 0, 600, 500)
+    new1.draw(screen)
     pygame.display.update()
     
     while True:
@@ -288,32 +294,40 @@ def game(playernum=4, sibari=0):
                 liboption.exitgame()
             
             if event.type == MOUSEBUTTONDOWN:
-                # 山から1枚とり、手牌を捨てる
-                discarded_idx = players[0].check_discard(event.pos)
-                if discarded_idx != -1:
-                    players[0].discard_idx(discarded_idx)
-                    players[0].show_tiles(screen)
-                    players[0].show_rivers(screen)
+                if new1.check(event.pos):
+                    player[0].discard_new(hand)
+                    # 河の表示更新
 
                     pygame.display.update()
-                    
-                    #順番にツモる
-                    for i in range(1, playernum):
-                        hand = wall.pop()
-                        players[i].add(hand)
-                        discard_tile = scraps[i].think(players[i].hands)
-                        players[i].discard(discard_tile)
 
-                    for i in range(1, playernum):
-                        players[i].show_tiles(screen)
-                        players[i].show_rivers(screen)
-                        print(i, players[i].hands.discarded_tiles)
-                    pygame.display.update()
-                    
                     hand = wall.pop()
-                    players[0].add(hand)
+                    new1 = libmahjong.TileSprite(hand, 0, 600, 500)
+                    new1.draw(screen)
 
-                    
+                    pygame.display.update()
+                
+                else:
+                    # 山から1枚とり、手牌を捨てる
+                    discarded_idx = pl0.checkall(event.pos)
+                    if discarded_idx != -1:
+                        players[0].discard(discarded_idx)
+                        players[0].add(hand)
+
+                        pl0.synctiles(players[0].get_tiles())
+                        pl0.drawall(screen)
+                        pygame.display.update()
+                        
+                        #河の表示
+                        
+                        pygame.display.update()
+                        hand = wall.pop()
+                        new1 = libmahjong.TileSprite(hand, 0, 600, 500)
+                        new1.draw(screen)
+
+                        pygame.display.update()
+
+                    else:
+                        return
 
 
 # main
