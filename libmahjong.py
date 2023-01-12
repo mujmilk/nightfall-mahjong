@@ -1,6 +1,7 @@
 import sys
 import pygame
 from pygame.locals import *
+import copy
 
 import random
 
@@ -52,10 +53,10 @@ IMG_NUM = {
 
 # 副露牌を管理するクラス
 class Furo:
-    def __init__(from_pos, tiles):
+    def __init__(self, from_pos, tiles):
         self.from_pos = from_pos
         self.tiles = tiles
-    
+
 # =======================
 # 衝突判定
 # =======================
@@ -330,6 +331,10 @@ def check_hands(player):
     # Characters: 21~29 : 萬子
     # Dragons   : 0, 10, 20 : 白，ハツ，中
     # Winds     : 30, 31, 32, 33 : 東，南，西，北
+
+    # 0ならアガリ
+    # 1ならテンパイ
+    # 2以上ならn-1シャンテン
     
     shanten_num = 8
 
@@ -340,15 +345,21 @@ def check_hands(player):
     menzen = player.check_menzen()
 
     # 国士無双の判定
-    kokushi = 13
-    kokushi_tiles = [0, 1, 9, 10, 11, 19, 20, 21, 29, 30, 31, 32, 33]
-    
-    kokushi_idx = 0
-    for t in sorted_tiles:
-        if t == kokushi_tiles[kokushi_idx]:
-            
+    kokushi = 10^6
+    if menzen:
+        kokushi_tiles = [0, 1, 9, 10, 11, 19, 20, 21, 29, 30, 31, 32, 33]
+        
+        kokushi_idx = 0
+        tmp_tiles = sorted_tiles.copy()
+        for t in kokushi_tiles:
+            if t in tmp_tiles:
+                tmp_tiles.remove(t)
+        for t in kokushi_tiles:
+            if t in tmp_tiles:
+                tmp_tiles.remove(t)
+                break
+        kokushi = len(tmp_tiles)
 
-    
     # 七対子の判定
     chitoitsu = 10^6
     if menzen:
@@ -367,8 +378,134 @@ def check_hands(player):
             chitoitsu = 6 - toitsu_cnt
     
     # 通常の役の判定
+    """
+    1. 手牌のなかで、3枚で完成した面子（順子か刻子）があれば2点とする
+    2. あと1枚で順子になるターツ、あるいは対子があれば、1点とする
+    3. すべての点数を足して、8点から引く
+    4. 引き算の答えがシャンテン数
+    """
 
     return 
+
+# 役を確認
+# 戻り値: [0, 1, 1, 0, 0]
+# 役番号の配列　その役が有効なら1 なしなら0
+# ドラは1以上の値が入る場合もあり
+# 点数計算、集計の場面で使用される
+
+"""
+役一覧
+====================
+
+1ハン
+0: 立直
+1: 役牌
+2: たんやおちゅー
+3: 平和【面前】
+4: 面前自摸
+5: 一発
+6: 一盃口【面前】
+7: ほうていろん
+8: ほうていつも
+9: 嶺上開花
+10: ダブル立直
+11: 槍槓
+
+2ハン
+12: 対々和
+13: 三色同順
+14: 七対子【面前】
+15: 一気通貫【鳴き-1】
+16: 混全帯么九【鳴き-1】
+17: 三暗刻
+18: 小三元
+19: 混老頭
+20: 三色同刻
+21: 三槓子
+22: 三色同順【鳴き-1】
+
+3ハン
+23: ホンイツ【鳴き-1】
+24: 純全帯么九【鳴き-1】
+25: 二盃口【面前】
+
+6ハン
+26: 清一色【鳴き-1】
+
+役満(13ハン)
+27: 四暗刻【面前】
+28: 国士無双【面前】
+29: 国士無双十三面待ち【面前】
+30: 大三元
+31: 四喜和
+32: 字一色
+33: 清老頭
+34: 地和【面前】
+35: 緑一色
+36: 九蓮宝燈【面前】
+37: 四槓子
+38: 天和【面前】
+"""
+# 評価関数
+# あがったかとはんすう
+# シャンテン数と期待できる役?
+
+
+# ツモまたはロンしたときに役を判定
+# シャンテン数0のとき限定
+def check_yaku(player, last_tile, tumo=True):
+
+    sorted_tiles = sorted(player.hands.tiles)
+    set_tiles = sorted(list(set(player.hands.tiles)))
+    count_tiles = [sorted_tiles.count(tile) for tile in set_tiles]
+
+    menzen = player.check_menzen()
+
+    yaku = []
+
+    # 役満判定
+    if menzen:
+        # 四暗刻
+        if count_tiles.count(3) == 4 and count_tiles.count(2) == 1:
+            yaku.append(27)
+
+        # 国士無双
+        kokushi_tiles = [0, 1, 9, 10, 11, 19, 20, 21, 29, 30, 31, 32, 33]
+        tmp_tiles = sorted_tiles.copy()
+        for t in kokushi_tiles:
+            if t in tmp_tiles:
+                tmp_tiles.remove(t)
+        if len(tmp_tiles)==0 and last_tile in kokushi_tiles:
+            yaku.append(29) # 国士無双十三面待ち
+        elif len(tmp_tiles)==1 and tmp_tiles[0] in kokushi_tiles and last_tile in kokushi_tiles and last_tile != tmp_tiles[0]:
+            yaku.append(28) # 国士無双
+    
+    # 大三元
+    if daisangen in set_tiles:
+    #player.hands.tiles = tiles
+    #self.wind = wind
+    #self.pung[i].tiles
+    #self.pung[i].from
+    #self.chow[i].tiles
+    #self.kong[i].tiles
+
+    
+31: 四喜和
+32: 字一色
+33: 清老頭
+34: 地和【面前】
+35: 緑一色
+36: 九蓮宝燈【面前】
+37: 四槓子
+38: 天和【面前】
+    
+    # 役満の場合は判定終了
+    if len(yaku) != 0:
+        return yaku
+
+    # 一般の役
+
+
 
 # 点数を返却
 def calc_points(hands, riichi, dora, ba_wind):

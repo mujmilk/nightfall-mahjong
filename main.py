@@ -277,6 +277,9 @@ def game(playernum=4, sibari=0):
         players[i].show_tiles(screen)
     
     pygame.display.update()
+
+    # TODO:
+    天和・ちほーの判定
     
     while True:
         clock.tick(30)
