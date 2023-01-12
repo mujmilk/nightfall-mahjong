@@ -125,7 +125,7 @@ def title(refreshbgm=True):
             if event.type == MOUSEBUTTONDOWN:
                 if start_button.collidepoint(event.pos):
                     liboption.playse("enter")
-                    return 2
+                    return 3#2 #2:さんまか四麻の選択画面, 3:ゲーム開始(4マ)
                 elif config_button.collidepoint(event.pos):
                     liboption.playse("enter")
                     return 1
@@ -200,6 +200,7 @@ def option():
                     liboption.playse("cancel")
                     return 10
 
+# 未使用
 def menu():
     # 四人，三人の選択
     # スタンダード，はんしばり，超接待，カスタムの選択
@@ -247,12 +248,14 @@ def game(playernum=4, sibari=0):
     # Dragons   : 0, 10, 20 : 白，ハツ，中
     # Winds     : 30, 31, 32, 33 : 東，南，西，北
 
+
+    # === ゲーム初期設定 =========
     players = [] # player, 下家, 対面, 上家
-    scraps = [0]
-    for i in range(playernum):
+    scraps = [0] # AIs
+    for i in range(playernum-1):
         scraps.append(libmahjong.Scrap())
 
-    # しーぱい
+    # 洗牌
     wall = [i for i in range(34) for j in range(4)]
     random.shuffle(wall)
 
@@ -282,12 +285,27 @@ def game(playernum=4, sibari=0):
 
     #開始時アニメーション
     screen.fill((20,20,20))
-
+    # 左上にGAMEと表示する TODO:背景画像表示に変更
     text = font.render("GAME", True, (222, 222, 222))
     screen.blit(text, [100, 100])
 
     pygame.display.update()
 
+    # TODO: 親からはじめる
+    for i in range(1, playernum):
+        hand = wall.pop()
+        players[i].add(hand)
+
+        # TODO: 天和・地和の判定
+        discard_tile = scraps[i].think(players[i].hands)
+        players[i].discard(discard_tile)
+
+        players[i].show_tiles(screen)
+        players[i].show_rivers(screen)
+
+        pygame.display.update()
+
+    
     hand = wall.pop()
     players[0].add(hand)
 
@@ -297,8 +315,7 @@ def game(playernum=4, sibari=0):
     
     pygame.display.update()
 
-    # TODO:
-    天和・ちほーの判定
+    # TODO: 天和・ちほーの判定
     
     while True:
         clock.tick(30)

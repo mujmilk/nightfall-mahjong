@@ -193,6 +193,7 @@ class Player:
         self.hands = Hands(tiles, wind)
         self.sprites = None
         self.riichi = riichi
+
         self.tenpai = tenpai
         self.tenpai_hai = []
 
@@ -512,6 +513,12 @@ def check_yaku(player, last_tile, tumo=True):
 # 点数を返却
 def calc_points(hands, riichi, dora, ba_wind):
 
+# ゲームの変数をここで保存するかどうか考え中
+# main.pyで直接管理してもいいかも 
+"""
+class Game:
+    def __init__(self):
+"""
 
 class Scrap:
     def __init__(self):
@@ -519,4 +526,6 @@ class Scrap:
     
     def think(self, hands):
         idx = random.randint(0, len(hands.tiles)-1)
+        # 役満てんぱいの場合上がるように
+        # あとはシャンテン数*はんすうに応じて判定させる?
         return hands.tiles[idx]
