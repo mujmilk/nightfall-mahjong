@@ -28,6 +28,7 @@ PATH_IMG_CONFIG_BUTTON = "sysimg/button/config.png"
 # "sysimg/"+str(0)+"/"+libmahjong.TILES[n]+".gif"
 
 # == 変数の宣言 ====
+# ゲーム毎に引き継ぐ変数のみ
 # ゲーム設定変数 ------
 # 場風
 prevailing_wind = 30 # 東
@@ -35,6 +36,12 @@ prevailing_wind = 30 # 東
 oya = 21012
 # 本場
 honba = 0
+# 点数
+points [35000 for i in range(4)]
+# AIs
+scraps = [0]
+for i in range(playernum-1):
+    scraps.append(libmahjong.Scrap())
 
 def init():
     # 初期化
@@ -240,14 +247,14 @@ def menu():
             
             if event.type == MOUSEBUTTONDOWN:
                 if yon_button.collidepoint(event.pos):
-                    game()
+                    game(init=True)
                     return 0
                 elif san_button.collidepoint(event.pos):
-                    game(playernum=3)
+                    game(init=True, playernum=3)
                     return 0
 
 
-def game(playernum=4, sibari=0):
+def game(init=False, playernum=4, sibari=0):
 
     liboption.playbgm(1)
 
@@ -259,18 +266,20 @@ def game(playernum=4, sibari=0):
 
 
     # === ゲーム初期設定 =========
+
+    # 回をまたいで持ち越さない情報のみを持つクラス
     players = [] # player, 下家, 対面, 上家
-    scraps = [0] # AIs
-    for i in range(playernum-1):
-        scraps.append(libmahjong.Scrap())
 
     # 洗牌
     wall = [i for i in range(34) for j in range(4)]
     random.shuffle(wall)
 
-    # 場風
-    prevailing_wind = 30
-    oya = random.randint(0, 3)
+    # 初回のみ
+    if init:
+        # 場風
+        prevailing_wind = 30
+        # 親決定
+        oya = random.randint(0, 3)
     
     # 配牌
     for i in range(playernum):
@@ -304,22 +313,29 @@ def game(playernum=4, sibari=0):
     pygame.display.update()
 
     # TODO: 親からはじめる
-    for i in range(1, playernum):
-        hand = wall.pop()
-        yaku = check_yaku(players[i], hand)
-        if len(yaku) != 0:
-            # TODO: 和了
-            pass
+    if oya != 0:
+        for i in range(oya, player_num):
+            hand = wall.pop()
+            yaku = check_yaku(players[i], hand)
 
-        players[i].add(hand)
+            if len(yaku) != 0:
+                if i == oya:
+                    tmp_yaku = [38] # 天和
+                else:
+                    tmp_yaku = [34] # 地和
+                
+                result_num = result(tmp_yaku, players[i].hands, hand, [i])
+                return result_num
 
-        discard_tile = scraps[i].think(players[i].hands)
-        players[i].discard(discard_tile)
+            players[i].add(hand)
 
-        players[i].show_tiles(screen)
-        players[i].show_rivers(screen)
+            discard_tile = scraps[i].think(players[i].hands)
+            players[i].discard(discard_tile)
 
-        pygame.display.update()
+            players[i].show_tiles(screen)
+            players[i].show_rivers(screen)
+
+            pygame.display.update()
 
     
     hand = wall.pop()
@@ -360,9 +376,51 @@ def game(playernum=4, sibari=0):
                         players[i].add(hand)
                         discard_tile = scraps[i].think(players[i].hands)
 
+                        # ツモアガりの判定
                         if discard_tile == -1:
-                            result()
+                            result_num = result(yaku, players[i].hands, hand, [i])
+                            return result_num
+                        
                         players[i].discard(discard_tile)
+                        
+                        # ロンアガりの判定 =======
+                        ron = []
+                        yakus = []
+                        for j in range(player_num):
+                            if j == i:
+                                continue
+                            
+                            # 未テスト
+                            yaku = check_yaku(players[j], discarded_tile, tumo=False)
+                            if len(yaku) != 0:
+                                ron.append(j)
+                                yakus.append(yaku)
+                        
+                        if len(ron) != 0:
+                            result_num = result(yaku, players[i].hands, hand, ron, i, tumo=False)
+                            return result_num
+                        # ロンあがりの判定 ここまで ========
+
+
+                        # ポン,カンの判定 ========
+                        # TODO: ポンとカンのボタンを並べて表示
+                        for j in range(player_num):
+                            if i == j:
+                                continue
+                            if players[j].hands.tiles.count(discard_tile) >= 2:
+                                
+                                # ポンのボタン表示
+                                if j == 0:
+                                    pass
+                                else:
+                                    pass
+                                
+                                # 判定待ち
+
+                        # ポンの判定 ここまで ========
+
+                        # チーの判定 ========
+                        # チーの判定 ここまで ========
 
                         players[i].show_tiles(screen)
                         players[i].show_rivers(screen)
@@ -377,13 +435,16 @@ def game(playernum=4, sibari=0):
                     # 立直ボタンを設置、クリックしたら該当する牌しか捨てられないようにする
 
 # 結果画面                    
-def result(yaku, hands, last_tile, player_num, to_player_num, tumo=True):
+def result(yaku, hands, last_tile, player_num, to_player_num=-1, tumo=True):
 
+    # 戻り値: 画面番号(ゲーム続行なら4, 終了なら0(タイトル画面))
     # 点数計算
 
     # 点数差し引き
 
     # 続行判定
+
+    # 場風と親の更新
 
     pass
 
@@ -403,6 +464,6 @@ while True:
     elif stats == 2:
         stats = menu()
     elif stats == 3:
+        stats = game(init=True)
+    elif stats == 4:
         stats = game()
-    #elif stats == 4:
-        #stats = result()
