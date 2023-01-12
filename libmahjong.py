@@ -188,11 +188,13 @@ class Hands:
 
 
 class Player:
-    def __init__(self, tiles, pos, wind, riichi=False):
+    def __init__(self, tiles, pos, wind, riichi=False, tenpai=False):
         self.pos = pos
         self.hands = Hands(tiles, wind)
         self.sprites = None
         self.riichi = riichi
+        self.tenpai = tenpai
+        self.tenpai_hai = []
 
         if pos == 0:
             size_x = IMG_SIZE[pos]['size_x']

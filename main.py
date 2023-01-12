@@ -7,9 +7,22 @@ import configparser
 import libmahjong
 import liboption
 
-# 定数の宣言 
-SCREEN_SIZE = (800, 600)  # 画面サイズ
+# == 定数の宣言 ====
+# 画面サイズ
+SCREEN_SIZE = (800, 600) # TODO: 1920x1080に入れ替える
+# ウィンドウタイトル
 TITLE = "Nightfall Mahjong"
+
+# タイトル画面系 ------
+# スタートボタン
+SIZE_START_BUTTON = [153, 330, 196, 211] # [左上x座標, 左上y座標, 横幅, 縦幅]
+# コンフィグボタン
+SIZE_CONFIG_BUTTON = [455, 330, 196, 211] # [左上x座標, 左上y座標, 横幅, 縦幅]
+
+# スタートボタン
+PATH_IMG_START_BUTTON = "sysimg/button/start.png"
+# コンフィグボタン
+PATH_IMG_CONFIG_BUTTON = "sysimg/button/config.png"
 
 #ファイル名
 # "sysimg/"+str(0)+"/"+libmahjong.TILES[n]+".gif"
@@ -18,6 +31,7 @@ def init():
     # 初期化
     pygame.init()
 
+    # config.iniから、サウンドの音量、フルスクリーンかどうかの設定値を取得する
     # config.iniが存在しないとき，設定がないとき，値がおかしいときの
     # エラー対応別途必要
     config_ini = configparser.ConfigParser()
@@ -34,17 +48,23 @@ def init():
 
     return (c_fs == "True")
 
+# ゲームウィンドウのアイコンを設定
 pygame.display.set_icon(pygame.image.load('sysimg/icon.png'))
+# 初期化(config.iniの取得)、戻り値:config.iniのフルスクリーン設定値(True:フルスクリーン)
 fullscreen = init()
+# 画面サイズの設定
 if fullscreen:
     screen = pygame.display.set_mode(SCREEN_SIZE, pygame.FULLSCREEN)
 else:
     screen = pygame.display.set_mode(SCREEN_SIZE)
 
-
+# ウィンドウタイトルの設定
 pygame.display.set_caption(TITLE)
+# フォントサイズの設定
 font = pygame.font.Font(None, 55)
+
 clock = pygame.time.Clock()
+
 
 def nanno_koma(n): # testok
     s = ""
@@ -65,18 +85,17 @@ def nanno_koma(n): # testok
         s += str(n%10)
     return s
 
-
-
+# タイトル画面
 def title(refreshbgm=True):
     # BGM開始
     if refreshbgm:
         liboption.playbgm(0)
 
     # ボタン
-    start_button   = pygame.Rect(153, 330, 196, 211)
-    config_button = pygame.Rect(455, 330, 196, 211)
-    startimg = pygame.image.load("sysimg/button/start.png")
-    configimg = pygame.image.load("sysimg/button/config.png")
+    start_button = pygame.Rect(*SIZE_START_BUTTON)
+    config_button = pygame.Rect(*SIZE_CONFIG_BUTTON)
+    startimg = pygame.image.load(PATH_IMG_START_BUTTON)
+    configimg = pygame.image.load(PATH_IMG_CONFIG_BUTTON)
 
     # 背景画像
     #bgimg = pygame.image.load("bgimg/title.png")
@@ -87,10 +106,10 @@ def title(refreshbgm=True):
     bgimg = pygame.image.load("anime/title/nm_"+str(int(frame/bairitsu)).zfill(4)+".bmp")
 
     while True:
-        clock.tick(30) #フレームレートの宣言，大事！ これがないとかなり重くなる
-        screen.blit(bgimg, (0, 0))
-        screen.blit(startimg, (153, 337))
-        screen.blit(configimg, (455, 337))
+        clock.tick(30) #フレームレートの宣言，重要！ これがないとかなり重くなる
+        screen.blit(bgimg, (0, 0)) # 左上座標
+        screen.blit(startimg, (SIZE_START_BUTTON[0], SIZE_START_BUTTON[1]+5))
+        screen.blit(configimg, (SIZE_CONFIG_BUTTON[0], SIZE_CONFIG_BUTTON[1]+5))
 
         pygame.display.update()
         
@@ -291,8 +310,10 @@ def game(playernum=4, sibari=0):
                 liboption.exitgame()
             
             if event.type == MOUSEBUTTONDOWN:
+
                 # 山から1枚とり、手牌を捨てる
                 discarded_idx = players[0].check_discard(event.pos)
+
                 if discarded_idx != -1:
                     players[0].discard_idx(discarded_idx)
                     players[0].show_tiles(screen)
@@ -307,6 +328,7 @@ def game(playernum=4, sibari=0):
                         discard_tile = scraps[i].think(players[i].hands)
                         players[i].discard(discard_tile)
 
+                    # 牌と河の表示、TODO:後で↑に含める
                     for i in range(1, playernum):
                         players[i].show_tiles(screen)
                         players[i].show_rivers(screen)
@@ -315,6 +337,11 @@ def game(playernum=4, sibari=0):
                     
                     hand = wall.pop()
                     players[0].add(hand)
+
+                    # シャンテン数の判定
+                    # つもった牌を除く、どれか1つの牌を捨てた場合にテンパイとなる場合、playerにテンパイフラグを付与？
+                    # 立直ボタンを設置、クリックしたら該当する牌しか捨てられないようにする
+                    
 
                     
 
@@ -334,7 +361,7 @@ while True:
         stats = option()
     elif stats == 2:
         stats = menu()
-    #elif stats == 3:
-        #stats = custommenu()
+    elif stats == 3:
+        stats = custommenu()
     #elif stats == 4:
         #stats = game()
