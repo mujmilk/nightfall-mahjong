@@ -528,4 +528,6 @@ class Scrap:
         idx = random.randint(0, len(hands.tiles)-1)
         # 役満てんぱいの場合上がるように
         # あとはシャンテン数*はんすうに応じて判定させる?
+
+        # てんぱいなら立直も候補に
         return hands.tiles[idx]

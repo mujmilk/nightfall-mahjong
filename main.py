@@ -24,6 +24,12 @@ PATH_IMG_START_BUTTON = "sysimg/button/start.png"
 # コンフィグボタン
 PATH_IMG_CONFIG_BUTTON = "sysimg/button/config.png"
 
+# ゲーム画面系 ------
+GAME_BUTTON_LABELS = ["ツモ", "ロン", "ポン", "チー", "カン"] #MAX4つ表示されるはず
+GAME_BUTTON = [300, 300, 100, 60] # [左上x座標, 左上y座標, 横幅, 縦幅]
+GAME_BUTTON_COLOR = (222, 222, 222)
+GAME_BUTTON_BG_COLOR = (0, 0, 0)
+
 #ファイル名
 # "sysimg/"+str(0)+"/"+libmahjong.TILES[n]+".gif"
 
@@ -40,6 +46,9 @@ honba = 0
 points [35000 for i in range(4)]
 # AIs
 scraps = [0]
+# game button
+game_buttons = []
+
 for i in range(playernum-1):
     scraps.append(libmahjong.Scrap())
 
@@ -81,6 +90,16 @@ font = pygame.font.Font(None, 55)
 
 clock = pygame.time.Clock()
 
+def show_game_button(buttons):
+    for button in buttons:
+        # 文字
+        text = font.render(GAME_BUTTON_LABELS[button], True, GAME_BUTTON_COLOR)
+
+        # ボタン
+        # TODO: 文字色変更
+        xy = GAME_BUTTON
+        xy[1] *= button
+        button   = pygame.Rect(*xy)
 
 def nanno_koma(n): # testok
     s = ""
@@ -393,34 +412,66 @@ def game(init=False, playernum=4, sibari=0):
                             # 未テスト
                             yaku = check_yaku(players[j], discarded_tile, tumo=False)
                             if len(yaku) != 0:
-                                ron.append(j)
-                                yakus.append(yaku)
+                                if j == 0:
+                                    game_buttons.append(1)
+                                else:
+                                    # TODO: ロンするかどうか
+                                    ron.append(j)
+                                    yakus.append(yaku)
                         
                         if len(ron) != 0:
-                            result_num = result(yaku, players[i].hands, hand, ron, i, tumo=False)
-                            return result_num
+                            if len(ron) == 1 and ron[0] == 0:
+                                pass # ロンするかどうか、ポンとかの判定と一緒に判定する
+                            else:
+                                # 他家がロンした場合、自家もロンする
+                                result_num = result(yaku, players[i].hands, hand, ron, i, tumo=False)
+                                return result_num
                         # ロンあがりの判定 ここまで ========
 
 
                         # ポン,カンの判定 ========
+                        pongs = -1
+                        kongs = -1
                         # TODO: ポンとカンのボタンを並べて表示
                         for j in range(player_num):
                             if i == j:
                                 continue
-                            if players[j].hands.tiles.count(discard_tile) >= 2:
+                            
+                            tiles_count = players[j].hands.tiles.count(discard_tile)
+                            if tiles_count >= 2:
                                 
                                 # ポンのボタン表示
                                 if j == 0:
-                                    pass
+                                    pongs = 0
+                                    if tiles_count >= 3:
+                                        kongs = 0
+                                        game_buttons.append(4)
+                                    game_buttons.append(2)
+                                    break
                                 else:
-                                    pass
+                                    # (自家がロンせずに、ポンできるとして)ポンするかどうか判定
+                                    pongs = j
+                                    if tiles_count >= 3:
+                                        kongs = j
+                                    break
                                 
-                                # 判定待ち
+                        # 判定待ち
+                        if len(ron) == 1 and ron[0] == 0 and pongs != 0 and pongs != -1:
+                            # 他家がポンしようとしている場合かつ自家がロンできる場合、ロンするかどうかボタン表示
+                            show_game_button(game_buttons)
+                            pygame.display.update()
 
+                            # TODO: クリック待ちの実装
+                            if event.type == MOUSEBUTTONDOWN:
+                                pass
+                        
+                        # ポンする
+                        if pongs != -1 and pongs != 0:
+                            pass
                         # ポンの判定 ここまで ========
-
-                        # チーの判定 ========
-                        # チーの判定 ここまで ========
+                        else:
+                            # チーの判定 ========
+                            # チーの判定 ここまで ========
 
                         players[i].show_tiles(screen)
                         players[i].show_rivers(screen)
@@ -447,6 +498,7 @@ def result(yaku, hands, last_tile, player_num, to_player_num=-1, tumo=True):
     # 場風と親の更新
 
     pass
+
 
 # main
 stats = 0 # 0:title, 1:option, 2:menu, 3:custommenu, 4:game, 5:result
