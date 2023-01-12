@@ -27,6 +27,15 @@ PATH_IMG_CONFIG_BUTTON = "sysimg/button/config.png"
 #ファイル名
 # "sysimg/"+str(0)+"/"+libmahjong.TILES[n]+".gif"
 
+# == 変数の宣言 ====
+# ゲーム設定変数 ------
+# 場風
+prevailing_wind = 30 # 東
+# 親
+oya = 21012
+# 本場
+honba = 0
+
 def init():
     # 初期化
     pygame.init()
@@ -125,7 +134,7 @@ def title(refreshbgm=True):
             if event.type == MOUSEBUTTONDOWN:
                 if start_button.collidepoint(event.pos):
                     liboption.playse("enter")
-                    return 3#2 #2:さんまか四麻の選択画面, 3:ゲーム開始(4マ)
+                    return 3#2 #2:さんまか四麻の選択画面, 3:ゲーム開始(4麻固定)
                 elif config_button.collidepoint(event.pos):
                     liboption.playse("enter")
                     return 1
@@ -261,11 +270,11 @@ def game(playernum=4, sibari=0):
 
     # 場風
     prevailing_wind = 30
-    player_wind = random.randint(30, 30+playernum-1)
+    oya = random.randint(0, 3)
     
     # 配牌
     for i in range(playernum):
-        wind = ((player_wind + i) % 10) % playernum + 30
+        wind = ((4-oya)%4+i)%4+30 # 三麻に未対応
         players.append(libmahjong.Player(tiles=wall[0:13], pos=i, wind=wind))
         del wall[0:13]
 
@@ -281,7 +290,10 @@ def game(playernum=4, sibari=0):
         bonus_tile -= 8
     else:
         bonus_tile += 1
+
+    # TODO: ドラ表示(GUI)
     print("ドラは", nanno_koma(bonus_tile))
+
 
     #開始時アニメーション
     screen.fill((20,20,20))
@@ -294,9 +306,13 @@ def game(playernum=4, sibari=0):
     # TODO: 親からはじめる
     for i in range(1, playernum):
         hand = wall.pop()
+        yaku = check_yaku(players[i], hand)
+        if len(yaku) != 0:
+            # TODO: 和了
+            pass
+
         players[i].add(hand)
 
-        # TODO: 天和・地和の判定
         discard_tile = scraps[i].think(players[i].hands)
         players[i].discard(discard_tile)
 
@@ -343,10 +359,11 @@ def game(playernum=4, sibari=0):
                         hand = wall.pop()
                         players[i].add(hand)
                         discard_tile = scraps[i].think(players[i].hands)
+
+                        if discard_tile == -1:
+                            result()
                         players[i].discard(discard_tile)
 
-                    # 牌と河の表示、TODO:後で↑に含める
-                    for i in range(1, playernum):
                         players[i].show_tiles(screen)
                         players[i].show_rivers(screen)
                         print(i, players[i].hands.discarded_tiles)
@@ -358,10 +375,17 @@ def game(playernum=4, sibari=0):
                     # シャンテン数の判定
                     # つもった牌を除く、どれか1つの牌を捨てた場合にテンパイとなる場合、playerにテンパイフラグを付与？
                     # 立直ボタンを設置、クリックしたら該当する牌しか捨てられないようにする
-                    
 
-                    
+# 結果画面                    
+def result(yaku, hands, last_tile, player_num, to_player_num, tumo=True):
 
+    # 点数計算
+
+    # 点数差し引き
+
+    # 続行判定
+
+    pass
 
 # main
 stats = 0 # 0:title, 1:option, 2:menu, 3:custommenu, 4:game, 5:result
@@ -379,6 +403,6 @@ while True:
     elif stats == 2:
         stats = menu()
     elif stats == 3:
-        stats = custommenu()
+        stats = game()
     #elif stats == 4:
-        #stats = game()
+        #stats = result()

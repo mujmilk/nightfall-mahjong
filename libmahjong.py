@@ -455,7 +455,7 @@ def check_hands(player):
 
 
 # ツモまたはロンしたときに役を判定
-# シャンテン数0のとき限定
+# シャンテン数0(?)のとき限定
 def check_yaku(player, last_tile, tumo=True):
 
     sorted_tiles = sorted(player.hands.tiles)
