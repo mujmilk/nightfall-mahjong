@@ -90,16 +90,37 @@ font = pygame.font.Font(None, 55)
 
 clock = pygame.time.Clock()
 
-def show_game_button(buttons):
+def show_game_button(buttons, screen):
+
+    xy = GAME_BUTTON
+    button_rects = []
+    
     for button in buttons:
         # 文字
         text = font.render(GAME_BUTTON_LABELS[button], True, GAME_BUTTON_COLOR)
+        screen.blit(text, xy[0:2])
 
         # ボタン
         # TODO: 文字色変更
-        xy = GAME_BUTTON
         xy[1] *= button
-        button   = pygame.Rect(*xy)
+        button_rects.append(pygame.Rect(*xy))
+    pygame.display.update()
+
+    # クリック待ち
+    # ボタン以外の部分がクリックされたらスキップ
+    while True:
+        clock.tick(30)
+        # イベント処理
+        for event in pygame.event.get():
+            if event.type == QUIT:  # 終了イベント
+                liboption.exitgame()
+            
+            if event.type == MOUSEBUTTONDOWN:
+
+                for i in range(button_rects):
+                    if button_rects[i].collidepoint(event.pos):
+                        return buttons[i]
+                return -1
 
 def nanno_koma(n): # testok
     s = ""
@@ -335,7 +356,7 @@ def game(init=False, playernum=4, sibari=0):
     if oya != 0:
         for i in range(oya, player_num):
             hand = wall.pop()
-            yaku = check_yaku(players[i], hand)
+            yaku = check_yaku(players[i], hand, prevailing_wind)
 
             if len(yaku) != 0:
                 if i == oya:
@@ -361,12 +382,24 @@ def game(init=False, playernum=4, sibari=0):
     players[0].add(hand)
 
     # 手牌の表示
-    for i in range(playernum):
-        players[i].show_tiles(screen)
+    players[0].show_tiles(screen)
+    yaku = check_yaku(players[0], hand, prevailing_wind)
+
+    if len(yaku) != 0:
+        if oya == 0:
+            tmp_yaku = [38] # 天和
+        else:
+            tmp_yaku = [34] # 地和
+        
+        game_buttons.append(0)
+        return_button = show_game_button(game_buttons, screen)
+        pygame.display.update()
+        
+        if return_button == 0:
+            result_num = result(tmp_yaku, players[i].hands, hand, [i])
+            return result_num
     
     pygame.display.update()
-
-    # TODO: 天和・ちほーの判定
     
     while True:
         clock.tick(30)
@@ -381,6 +414,7 @@ def game(init=False, playernum=4, sibari=0):
 
                 # 山から1枚とり、手牌を捨てる
                 discarded_idx = players[0].check_discard(event.pos)
+                game_buttons = []
 
                 if discarded_idx != -1:
                     players[0].discard_idx(discarded_idx)
@@ -409,8 +443,7 @@ def game(init=False, playernum=4, sibari=0):
                             if j == i:
                                 continue
                             
-                            # 未テスト
-                            yaku = check_yaku(players[j], discarded_tile, tumo=False)
+                            yaku = check_yaku(players[j], discarded_tile, prevailing_wind, tumo=False)
                             if len(yaku) != 0:
                                 if j == 0:
                                     game_buttons.append(1)
@@ -458,16 +491,15 @@ def game(init=False, playernum=4, sibari=0):
                         # 判定待ち
                         if len(ron) == 1 and ron[0] == 0 and pongs != 0 and pongs != -1:
                             # 他家がポンしようとしている場合かつ自家がロンできる場合、ロンするかどうかボタン表示
-                            show_game_button(game_buttons)
-                            pygame.display.update()
-
-                            # TODO: クリック待ちの実装
-                            if event.type == MOUSEBUTTONDOWN:
-                                pass
+                            return_button = show_game_button(game_buttons, screen)
+                            if return_button != -1:
+                                result_num = result(yaku, players[0].hands, hand, ron, i, tumo=False)
+                                return result_num
                         
                         # ポンする
                         if pongs != -1 and pongs != 0:
                             pass
+                            #players[pongs].pong(discard_tile, i)
                         # ポンの判定 ここまで ========
                         else:
                             # チーの判定 ========

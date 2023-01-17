@@ -184,6 +184,9 @@ class Hands:
             if kong.from_pos != player_pos:
                 flag = False
         return flag
+    
+    def pong(self, tile, from_pos):
+
 
 
 
@@ -204,6 +207,9 @@ class Player:
             y = IMG_SIZE[pos]['y']
         
             self.sprites = TileSprites(13, size_x, size_y, x, y, dx=size_x, dy=0)
+ m
+    def pong(self, tile, from_pos):
+        self.hands.pong(tile, from_pos)
 
     def discard(self, tile):
         self.hands.discard(tile)
@@ -456,7 +462,7 @@ def check_hands(player):
 
 # ツモまたはロンしたときに役を判定
 # シャンテン数0(?)のとき限定
-def check_yaku(player, last_tile, tumo=True):
+def check_yaku(player, last_tile, ba_wind, tumo=True):
 
     sorted_tiles = sorted(player.hands.tiles)
     set_tiles = sorted(list(set(player.hands.tiles)))
@@ -511,7 +517,7 @@ def check_yaku(player, last_tile, tumo=True):
 
 
 # 点数を返却
-def calc_points(hands, riichi, dora, ba_wind):
+def calc_points(hands, yaku, riichi, dora, ba_wind, tumo=False):
 
 # ゲームの変数をここで保存するかどうか考え中
 # main.pyで直接管理してもいいかも 
