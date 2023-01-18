@@ -26,7 +26,7 @@ PATH_IMG_CONFIG_BUTTON = "sysimg/button/config.png"
 
 # ゲーム画面系 ------
 GAME_BUTTON_LABELS = ["ツモ", "ロン", "ポン", "チー", "カン"] #MAX4つ表示されるはず
-GAME_BUTTON = [300, 300, 100, 60] # [左上x座標, 左上y座標, 横幅, 縦幅]
+GAME_BUTTON = [0, 0, 100, 60] # [左上x座標, 左上y座標, 横幅, 縦幅]
 GAME_BUTTON_COLOR = (222, 222, 222)
 GAME_BUTTON_BG_COLOR = (0, 0, 0)
 
@@ -39,17 +39,19 @@ GAME_BUTTON_BG_COLOR = (0, 0, 0)
 # 場風
 prevailing_wind = 30 # 東
 # 親
-oya = 21012
+oya = 0
+# 起家
+first_oya = 0
 # 本場
 honba = 0
 # 点数
-points [35000 for i in range(4)]
+points = [35000 for i in range(4)]
 # AIs
 scraps = [0]
 # game button
 game_buttons = []
 
-for i in range(playernum-1):
+for i in range(4): #playerの最大数が4
     scraps.append(libmahjong.Scrap())
 
 def init():
@@ -117,7 +119,7 @@ def show_game_button(buttons, screen):
             
             if event.type == MOUSEBUTTONDOWN:
 
-                for i in range(button_rects):
+                for i in range(len(button_rects)):
                     if button_rects[i].collidepoint(event.pos):
                         return buttons[i]
                 return -1
@@ -130,16 +132,22 @@ def nanno_koma(n): # testok
     elif n % 10 == 0:
         namelist = ["白", "發", "中"]
         s += namelist[int(n / 10)]
-    elif n >= 20:
+    elif n < 10:
         namelist = ["一", "二", "三", "四", "五", "六", "七", "八" ,"九"]
         s += namelist[n % 10 - 1] + "萬"
     else:
-        if n >= 10:
+        if n >= 20:
             s += "索子(ソーズ)の"
         else:
             s += "筒子(ピンズ)の"
         s += str(n%10)
     return s
+
+def nanno_koma_list(tiles):
+    l = []
+    for t in tiles:
+        l.append(nanno_koma(t))
+    return l
 
 # タイトル画面
 def title(refreshbgm=True):
@@ -298,12 +306,11 @@ def game(init=False, playernum=4, sibari=0):
 
     liboption.playbgm(1)
 
-    # Dots      : 1~9 : 筒子
-    # Bamboo    : 11~19 : 索子
-    # Characters: 21~29 : 萬子
+    # Characters: 1~9   : 萬子(マンズ)
+    # Dots      : 11~19 : 筒子(ピンズ)
+    # Bamboo    : 21~29 : 索子(ソーズ)
     # Dragons   : 0, 10, 20 : 白，ハツ，中
     # Winds     : 30, 31, 32, 33 : 東，南，西，北
-
 
     # === ゲーム初期設定 =========
 
@@ -312,7 +319,10 @@ def game(init=False, playernum=4, sibari=0):
 
     # 洗牌
     wall = [i for i in range(34) for j in range(4)]
-    random.shuffle(wall)
+
+    test = True
+    if not test:
+        random.shuffle(wall)
 
     # 初回のみ
     if init:
@@ -320,12 +330,23 @@ def game(init=False, playernum=4, sibari=0):
         prevailing_wind = 30
         # 親決定
         oya = random.randint(0, 3)
+        # 起家
+        first_oya = oya
+    
+    # TODO: 表示
+    print('親:', oya, libmahjong.TILES[prevailing_wind], oya,first_oya, '局', honba, '本場')
     
     # 配牌
-    for i in range(playernum):
-        wind = ((4-oya)%4+i)%4+30 # 三麻に未対応
-        players.append(libmahjong.Player(tiles=wall[0:13], pos=i, wind=wind))
-        del wall[0:13]
+    if test:
+        for i in range(playernum):
+            wind = ((4-oya)%4+i)%4+30 # 三麻に未対応
+            players.append(libmahjong.Player(tiles=wall[0:13], pos=i, wind=wind))
+            del wall[0:13]
+    else:
+        for i in range(playernum):
+            wind = ((4-oya)%4+i)%4+30 # 三麻に未対応
+            players.append(libmahjong.Player(tiles=wall[0:13], pos=i, wind=wind))
+            del wall[0:13]
 
     # ドラ決め testok
     bonus_tile = wall.pop()
@@ -342,7 +363,7 @@ def game(init=False, playernum=4, sibari=0):
 
     # TODO: ドラ表示(GUI)
     print("ドラは", nanno_koma(bonus_tile))
-
+    bonus_tiles = [bonus_tile]
 
     #開始時アニメーション
     screen.fill((20,20,20))
@@ -352,11 +373,13 @@ def game(init=False, playernum=4, sibari=0):
 
     pygame.display.update()
 
-    # TODO: 親からはじめる
+    # TODO: ポン・チー・カンの判定
+    skip_flag = -1
+
     if oya != 0:
-        for i in range(oya, player_num):
+        for i in range(oya, playernum):
             hand = wall.pop()
-            yaku = check_yaku(players[i], hand, prevailing_wind)
+            yaku = libmahjong.check_yaku(players[i], hand, prevailing_wind, bonus_tiles)
 
             if len(yaku) != 0:
                 if i == oya:
@@ -364,7 +387,7 @@ def game(init=False, playernum=4, sibari=0):
                 else:
                     tmp_yaku = [34] # 地和
                 
-                result_num = result(tmp_yaku, players[i].hands, hand, [i])
+                result_num = result([tmp_yaku], [i])
                 return result_num
 
             players[i].add(hand)
@@ -383,7 +406,8 @@ def game(init=False, playernum=4, sibari=0):
 
     # 手牌の表示
     players[0].show_tiles(screen)
-    yaku = check_yaku(players[0], hand, prevailing_wind)
+    yaku = libmahjong.check_yaku(players[0], hand, prevailing_wind, bonus_tiles)
+    pygame.display.update()
 
     if len(yaku) != 0:
         if oya == 0:
@@ -393,14 +417,68 @@ def game(init=False, playernum=4, sibari=0):
         
         game_buttons.append(0)
         return_button = show_game_button(game_buttons, screen)
-        pygame.display.update()
         
         if return_button == 0:
-            result_num = result(tmp_yaku, players[i].hands, hand, [i])
+            result_num = result([tmp_yaku], [i])
             return result_num
     
-    pygame.display.update()
-    
+    # カンを表示
+    tiles_uniqs = list(set(players[0].hands.tiles))
+    tiles_count = [players[0].hands.tiles.count(tiles_uniqs[i]) for i in range(len(tiles_uniqs))]
+    yon_tiles = []
+    for idx_tiles_count in range(len(tiles_count)):
+        if tiles_count[idx_tiles_count] == 4:
+            yon_tiles.append(tiles_uniqs[idx_tiles_count])
+    if len(yon_tiles) != 0:
+        print('player kong')
+        game_buttons = [4]
+        return_button = show_game_button(game_buttons, screen)
+        print('return_button', return_button)
+        if return_button == 4:
+            selecting_flag = True
+            while selecting_flag:
+                clock.tick(30)
+                for event in pygame.event.get():
+                    if event.type == QUIT:  # 終了イベント
+                        liboption.exitgame()
+                    
+                    if event.type == MOUSEBUTTONDOWN:
+                        yon_discarded_idx = players[0].check_discard(event.pos)
+                        if players[0].hands.tiles[yon_discarded_idx] in yon_tiles:
+                            players[0].kong(players[0].hands.tiles[yon_discarded_idx], 0)
+                            selecting_flag = False
+
+                            hand = wall.pop()
+                            players[0].add(hand)
+
+                            # 手牌の表示
+                            print('player konged')
+                            players[0].show_tiles(screen)
+                            yaku = libmahjong.check_yaku(players[0], hand, prevailing_wind, bonus_tiles)
+                            pygame.display.update()
+
+                            # 嶺上開花 未テスト
+                            if len(yaku) != 0:
+                                yaku.append(9)
+
+                                game_buttons = [0]
+                                return_button = show_game_button(game_buttons, screen)
+                                print('return_button', return_button)
+                                
+                                if return_button == 0:
+                                    result_num = result([yaku], [0])
+                                    return result_num
+
+                            players[0].show_tiles(screen)
+                            pygame.display.update()
+
+                            break
+                        else:
+                            pass
+        else:
+            print('player kong cancel')
+        game_buttons.clear()
+
     while True:
         clock.tick(30)
 
@@ -410,14 +488,27 @@ def game(init=False, playernum=4, sibari=0):
             if event.type == QUIT:  # 終了イベント
                 liboption.exitgame()
             
-            if event.type == MOUSEBUTTONDOWN:
+            if event.type == MOUSEBUTTONDOWN or skip_flag != -1:
 
-                # 山から1枚とり、手牌を捨てる
-                discarded_idx = players[0].check_discard(event.pos)
-                game_buttons = []
+                print('loop')
+                
+                if skip_flag == -1 or skip_flag == 0:
+                    print('loop in')
+                    
+                    skip_flag = -1
 
-                if discarded_idx != -1:
+                    # 山から1枚とり、手牌を捨てる
+                    discarded_idx = players[0].check_discard(event.pos)
+                    game_buttons = []
+
+                    print(players[0].riichi, discarded_idx)
+
+                if (players[0].riichi == -1 and discarded_idx != -1) or (players[0].riichi != -1 and discarded_idx == 13):
+                    
+                    print('loop in in')
+
                     players[0].discard_idx(discarded_idx)
+                    # TODO: ここで牌をソートする
                     players[0].show_tiles(screen)
                     players[0].show_rivers(screen)
 
@@ -425,13 +516,56 @@ def game(init=False, playernum=4, sibari=0):
                     
                     #順番にツモる
                     for i in range(1, playernum):
-                        hand = wall.pop()
-                        players[i].add(hand)
+
+                        if skip_flag == 0:
+                            break
+                        
+                        if skip_flag != -1:
+                            if skip_flag != i:
+                                continue
+                        else: #skip_flag == -1:
+
+                            # 流局判定
+                            if len(wall) == 0:
+                                # テンパイしているかどうか調査
+                                tenpai_players = []
+                                to_players = [i for i in range(playernum)]
+                                for j in range(playernum):
+                                    shanten = libmahjong.check_hands(players[j].hands, players[j].menzen)
+                                    if shanten <= 1:
+                                        tenpai_players.append(j)
+                                        to_players.remove(j)
+                                
+                                result_num = result([[39]], tenpai_players, to_player_num=to_players, tumo=False)
+                                return result_num
+
+                            hand = wall.pop()
+                            players[i].add(hand)
+
+                            """ #槍槓
+                            for k in range(len(players[j].hands.pong_tiles)):
+                                if discard_tile in players[j].hands.pong_tiles[k].tiles:
+                                    kongs = j
+                                    add_kong_flag = True
+                                    break
+                            if add_kong_flag:
+                                if kongs == 0:
+                                    game_buttons.append(4)
+                                break
+                            """
+
+                        skip_flag = -1
+
                         discard_tile = scraps[i].think(players[i].hands)
 
                         # ツモアガりの判定
                         if discard_tile == -1:
-                            result_num = result(yaku, players[i].hands, hand, [i])
+
+                            # はいていつも
+                            if len(wall) == 0:
+                                yaku.append(8)
+                            
+                            result_num = result([yaku], [i])
                             return result_num
                         
                         players[i].discard(discard_tile)
@@ -439,34 +573,39 @@ def game(init=False, playernum=4, sibari=0):
                         # ロンアガりの判定 =======
                         ron = []
                         yakus = []
-                        for j in range(player_num):
+                        for j in range(playernum):
                             if j == i:
                                 continue
                             
-                            yaku = check_yaku(players[j], discarded_tile, prevailing_wind, tumo=False)
+                            if discard_tile in players[j].hands.discarded_tiles or discard_tile in players[j].hands.discarded_tiles_not_shown:
+                                continue
+                            
+                            yaku = libmahjong.check_yaku(players[j], discard_tile, prevailing_wind, bonus_tiles, tumo=False)
                             if len(yaku) != 0:
                                 if j == 0:
+                                    ron.append(0)
+                                    yakus.append(yaku)
                                     game_buttons.append(1)
                                 else:
-                                    # TODO: ロンするかどうか
                                     ron.append(j)
                                     yakus.append(yaku)
                         
                         if len(ron) != 0:
+                            print('ron check')
                             if len(ron) == 1 and ron[0] == 0:
                                 pass # ロンするかどうか、ポンとかの判定と一緒に判定する
                             else:
                                 # 他家がロンした場合、自家もロンする
-                                result_num = result(yaku, players[i].hands, hand, ron, i, tumo=False)
+                                result_num = result(yakus, ron, to_player_num=[i], tumo=False, playernum=playernum)
                                 return result_num
                         # ロンあがりの判定 ここまで ========
 
 
-                        # ポン,カンの判定 ========
+                        # ポン,カンの判定 タイミング:捨て========
                         pongs = -1
                         kongs = -1
-                        # TODO: ポンとカンのボタンを並べて表示
-                        for j in range(player_num):
+
+                        for j in range(playernum):
                             if i == j:
                                 continue
                             
@@ -483,54 +622,324 @@ def game(init=False, playernum=4, sibari=0):
                                     break
                                 else:
                                     # (自家がロンせずに、ポンできるとして)ポンするかどうか判定
+                                    #furo = players[j].think_furo(players[j].hands, discard_tile)
+
                                     pongs = j
-                                    if tiles_count >= 3:
+                                    if tiles_count >= 3: # TODO:カンするなら
                                         kongs = j
+                                        pongs = -1
                                     break
                                 
                         # 判定待ち
-                        if len(ron) == 1 and ron[0] == 0 and pongs != 0 and pongs != -1:
-                            # 他家がポンしようとしている場合かつ自家がロンできる場合、ロンするかどうかボタン表示
+                        if len(ron) == 1 and ron[0] == 0 and ((pongs != 0 and pongs != -1) or (kongs != -1 and kongs != 0)):
+                            # 他家がポンまたはカンしようとしている場合かつ自家がロンできる場合、ロンするかどうかボタン表示
                             return_button = show_game_button(game_buttons, screen)
                             if return_button != -1:
-                                result_num = result(yaku, players[0].hands, hand, ron, i, tumo=False)
+                                result_num = result(yakus, ron, to_player_num=[i], tumo=False)
                                 return result_num
                         
                         # ポンする
                         if pongs != -1 and pongs != 0:
-                            pass
-                            #players[pongs].pong(discard_tile, i)
-                        # ポンの判定 ここまで ========
-                        else:
-                            # チーの判定 ========
-                            # チーの判定 ここまで ========
+                            print('pong check')
+                            pong_flag = scraps[pongs].think_furo(players[pongs], discard_tile)
+                            print('player', pongs, 'pong flag:', pong_flag)
+                            if pong_flag:
+                                players[pongs].pong(discard_tile, i)
+                                print(players[pongs].hands.pong_tiles)
+                                players[i].discard_to_not_shown(discard_tile)
+                                skip_flag = pongs
+                                continue
+                        
+                        # カンする
+                        if kongs != -1 and kongs != 0:
+                            print('kong check')
+                            kong_flag = scraps[kongs].think_furo(players[kongs], discard_tile)
+                            print('player', kongs, 'kong flag:', kong_flag)
+                            if kong_flag:
+                                players[kongs].kong(discard_tile, i)
+                                print(players[kongs].hands.kong_tiles)
+                                skip_flag = kongs
+                                
+                                tmp_bonus_tile = wall.pop()
+                                #print("ドラ表示牌は", bonus_tile)
+                                #bonus_tileimg = TILES[bonus_tile] #表示用
+                                if tmp_bonus_tile >= 30:
+                                    tmp_bonus_tile = 30 + (bonus_tile % 30 + 1) % 4
+                                elif tmp_bonus_tile % 10 == 0:
+                                    tmp_bonus_tile = (bonus_tile + 10) % 30
+                                elif tmp_bonus_tile % 10 == 9:
+                                    tmp_bonus_tile -= 8
+                                else:
+                                    tmp_bonus_tile += 1
+                                bonus_tiles.append(tmp_bonus_tile)
+                                print("ドラ追加:", nanno_koma(tmp_bonus_tile))
 
+                                rinshan_flag = True
+                                continue
+                        # ポン,カンの判定 ここまで ========
+                        #else: #何このelse?
+                            #pass
+
+                        # チーの判定 ================
+                        chow_tiles = []
+                        # チーの判定 ここまで ========
+
+                        # ロン・ポン・チー・カン(他家から)をまとめて表示
+                        if len(game_buttons) != 0:
+                            return_button = show_game_button(game_buttons, screen)
+                            if return_button != -1:
+                                if return_button == 1:
+                                    result_num = result(yakus, ron, to_player_num=[i], tumo=False)
+                                    return result_num
+                                elif return_button == 2:
+                                    player[0].pong(discard_tile, i)
+                                elif return_button == 3:
+                                    player[0].chow(chow_tiles, i)
+                                elif return_button == 4:
+                                    player[0].kong(discard_tile, i)
+                            game_buttons.clear()
+                        
                         players[i].show_tiles(screen)
                         players[i].show_rivers(screen)
-                        print(i, players[i].hands.discarded_tiles)
-                    pygame.display.update()
+                        print('player', i, players[i].hands.discarded_tiles)
+                        pygame.display.update()
                     
-                    hand = wall.pop()
-                    players[0].add(hand)
+                    # 流局判定
+                    if len(wall) == 0:
+                        # テンパイしているかどうか調査
+                        tenpai_players = []
+                        to_players = [i for i in range(playernum)]
+                        for j in range(playernum):
+                            shanten = libmahjong.check_hands(players[j].hands, players[j].menzen)
+                            if shanten <= 1:
+                                tenpai_players.append(j)
+                                to_players.remove(j)
+                        
+                        result_num = result([[39]], tenpai_players, to_player_num=to_players, tumo=False)
+                        return result_num
 
-                    # シャンテン数の判定
-                    # つもった牌を除く、どれか1つの牌を捨てた場合にテンパイとなる場合、playerにテンパイフラグを付与？
-                    # 立直ボタンを設置、クリックしたら該当する牌しか捨てられないようにする
+                    if skip_flag == -1 or skip_flag == 0:
+                        skip_flag = -1
 
-# 結果画面                    
-def result(yaku, hands, last_tile, player_num, to_player_num=-1, tumo=True):
+                        hand = wall.pop()
+                        players[0].add(hand)
+
+                        # カンを表示
+                        tiles_uniqs = list(set(players[0].hands.tiles))
+                        tiles_count = [players[0].hands.tiles.count(tiles_uniqs[i]) for i in range(len(tiles_uniqs))]
+                        yon_tiles = []
+                        for idx_tiles_count in range(len(tiles_count)):
+                            if tiles_count[idx_tiles_count] == 4:
+                                yon_tiles.append(tiles_uniqs[idx_tiles_count])
+                        if len(yon_tiles) != 0:
+                            print('player kong')
+                            game_buttons = [4]
+                            return_button = show_game_button(game_buttons, screen)
+                            print('return_button', return_button)
+                            if return_button == 4:
+                                selecting_flag = True
+                                while selecting_flag:
+                                    clock.tick(30)
+                                    for event in pygame.event.get():
+                                        #if event.type == QUIT:  # 終了イベント
+                                        #    liboption.exitgame()
+                                        
+                                        if event.type == MOUSEBUTTONDOWN:
+                                            yon_discarded_idx = players[0].check_discard(event.pos)
+                                            if players[0].hands.tiles[yon_discarded_idx] in yon_tiles:
+                                                players[0].kong(players[0].hands.tiles[yon_discarded_idx], 0)
+                                                selecting_flag = False
+
+                                                hand = wall.pop()
+                                                players[0].add(hand)
+
+                                                # 手牌の表示
+                                                print('player konged')
+                                                players[0].show_tiles(screen)
+                                                yaku = libmahjong.check_yaku(players[0], hand, prevailing_wind, bonus_tiles)
+                                                pygame.display.update()
+
+                                                # 嶺上開花 未テスト
+                                                if len(yaku) != 0:
+                                                    yaku.append(9)
+
+                                                    game_buttons = [0]
+                                                    return_button = show_game_button(game_buttons, screen)
+                                                    print('return_button', return_button)
+                                                    
+                                                    if return_button == 0:
+                                                        result_num = result([yaku], [0])
+                                                        return result_num
+
+                                                players[0].show_tiles(screen)
+                                                pygame.display.update()
+
+                                                break
+                                            else:
+                                                pass
+                            else:
+                                print('player kong cancel')
+                            game_buttons.clear()
+
+                        # ツモあがりの判定
+                        yaku = libmahjong.check_yaku(players[0], hand, prevailing_wind, bonus_tiles)
+                        if len(yaku) != 0:
+                            game_buttons = [0]
+                            return_button = show_game_button(game_buttons, screen)
+                
+                            if return_button == 0:
+                                result_num = result([yaku], [0], playernum=playernum)
+                                return result_num
+                        
+                        tenpai_hai = libmahjong.tenpai_hai_check(players[0])
+
+
+# 結果画面                  
+# 龍局の場合、テンパイ人を  
+def result(yakus, player_num, to_player_num=[], tumo=True, playernum=4):
+    global oya
+    global honba
 
     # 戻り値: 画面番号(ゲーム続行なら4, 終了なら0(タイトル画面))
     # 点数計算
+    
+    if [39] in yakus:
+        if len(player_num) == playernum:
+            pass
+        elif len(player_num) == 1:
+            for i in to_player_num:
+                points[i] -= 1000
+            for i in player_num:
+                points[i] += 3000
+        elif len(player_num) == 2:
+            for i in to_player_num:
+                points[i] -= 1500
+            for i in player_num:
+                points[i] += 1500
+        elif len(player_num) == 3:
+            for i in to_player_num:
+                points[i] -= 3000
+            for i in player_num:
+                points[i] += 1000
+        
+    elif tumo:
+        if len(yakus) != 1 or len(player_num) != 1:
+            print('err result func')
+        
+        sorted_yaku = sorted(yakus[0])
+        get_points_oya_ko = libmahjong.calc_points(sorted_yaku, tumo=True)
+        get_points = get_points_oya_ko[0]
+        if oya != player_num[0]:
+            get_points = get_points_oya_ko[1]
 
-    # 点数差し引き
+        # 点数差し引き
+        get_total_points = get_points * (playernum - 1)
+        for i in playernum:
+            if player_num[0] == i:
+                continue
+            points[i] -= get_points
+        points[player_num[0]] += get_total_points
+    else:
+        if len(to_player_num) == 0:
+            print('err to_player_num is []')
+        
+        sorted_yakus = []
+        get_points = []
 
+        for player_idx in range(len(player_num)):
+            sorted_yaku = sorted(yakus[player_idx])
+            get_points_oya_ko = libmahjong.calc_points(sorted_yaku, oya=(oya==player_num[player_idx]))
+            
+            if oya == to_player_num[0]:
+                points[to_player_num[0]] -= get_points_oya_ko[0]
+                points[player_num[player_idx]] += get_points_oya_ko[0]
+            else:
+                points[to_player_num[0]] -= get_points_oya_ko[1]
+                points[player_num[player_idx]] += get_points_oya_ko[1]
+
+    # TODO: 結果表示
+    for i in range(len(player_num)):
+        print('== agari')
+        print(player_num[i])
+        print('- yaku')
+        for yaku in sorted_yakus[i]:
+            print(libmahjong.yaku_name(yaku), end=',')
+        print()
+    
+    
     # 続行判定
+    return_num = 0
 
-    # 場風と親の更新
+    for i in range(playernum): #飛び判定
+        if points[i] <= 0:
+            return_num = 5
+            return return_num
 
-    pass
+    if [39] in yakus:
+        if oya in player_num:
+            honba += 1
+        else:
+            oya = (oya + 1) % playernum
+            honba += 1
+            if oya == first_oya:
+                if prevailing_wind == 30:
+                    prevailing_wind = 31
+                    return_num = 4 #game(init=False)
+                elif prevailing_wind == 31:
+                    return_num = 5 #result_all()
+                else:
+                    print('err result next')
+    else:
+        if oya in player_num:
+            honba += 1
+        else:
+            oya = (oya + 1) % playernum
+            honba = 0
+            if oya == first_oya:
+                if prevailing_wind == 30:
+                    prevailing_wind = 31
+                    return_num = 4 #game(init=False)
+                elif prevailing_wind == 31:
+                    return_num = 5 #result_all()
+                else:
+                    print('err result next')
 
+    return return_num
+
+# 結果表示
+def result_all():
+    # 点数表示
+    # タイトル画面へ、終了 の2つのボタンの表示
+
+    # 文字
+    yon_text = font.render("タイトル画面へ", True, (222, 222, 222))
+    san_text = font.render("終了", True, (222, 222, 222))
+
+    # ボタン
+    yon_button   = pygame.Rect(250, 360, 300, 60)
+    san_button   = pygame.Rect(250, 500, 300, 60)
+
+    while True:
+        clock.tick(30)
+        screen.fill((20,20,20))
+
+        pygame.draw.rect(screen, (80, 80, 80), yon_button)
+        pygame.draw.rect(screen, (80, 80, 80), san_button)
+
+        screen.blit(yon_text, [275, 375])
+        screen.blit(san_text, [275, 510])
+
+        pygame.display.update()
+        # イベント処理
+        for event in pygame.event.get():
+            if event.type == QUIT:  # 終了イベント
+                liboption.exitgame()
+            
+            if event.type == MOUSEBUTTONDOWN:
+                if yon_button.collidepoint(event.pos):
+                    liboption.exitgame()
+                elif san_button.collidepoint(event.pos):
+                    return 0
 
 # main
 stats = 0 # 0:title, 1:option, 2:menu, 3:custommenu, 4:game, 5:result
@@ -550,4 +959,7 @@ while True:
     elif stats == 3:
         stats = game(init=True)
     elif stats == 4:
+        print('game')
         stats = game()
+    elif stats == 5:
+        stats = result_all()
