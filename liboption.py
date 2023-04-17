@@ -97,9 +97,7 @@ def init(bgm_volume=100, se_volume=100):
     sepath = "sound/*"
     sepathlist = glob.glob(sepath)
     for path in sepathlist:
-        print(path)
         se_sounds[path[6:-4]] = pygame.mixer.Sound(path)
-        print(path[6:-4])
     
     playsound.append(bool(bgm_volume))
     playsound.append(bool(se_volume))

@@ -6,57 +6,31 @@ import copy
 import random
 
 # "sysimg/open_tiles/"+TILES[n]+"_"+str(i)+".gif"
-TILES = ["p_no_", "p_ms1_", "p_ms2_", "p_ms3_", "p_ms4_", "p_ms5_", "p_ms6_", "p_ms7_", "p_ms8_", "p_ms9_",
-         "p_ji_h_", "p_ps1_", "p_ps2_", "p_ps3_", "p_ps4_", "p_ps5_", "p_ps6_", "p_ps7_", "p_ps8_", "p_ps9_",
-         "p_ji_c_", "p_ss1_", "p_ss2_", "p_ss3_", "p_ss4_", "p_ss5_", "p_ss6_", "p_ss7_", "p_ss8_", "p_ss9_",
-         "p_ji_e_", "p_ji_s_", "p_ji_w_", "p_ji_n_"]
+SCREEN_SIZE = (800, 600)
 
 # テスト用色分け
 POS_COLORS = [(222, 50, 50), (50, 222, 50), (50, 50, 222), (222, 50, 222)]
 
-IMG_SIZE = {
-    0: {'size_x': 33, 'size_y': 60, 'x':20, 'y':520, 'dx':33, 'dy':0}, # 自家通常
-    1: {'size_x': 26, 'size_y': 25, 'x':754, 'y':200, 'dx':0, 'dy':25},# 下家通常
-    2: {'size_x': 33, 'size_y': 59, 'x':300, 'y':20, 'dx':33, 'dy':0},# 対面通常
-    3: {'size_x': 26, 'size_y': 25, 'x':20, 'y':40, 'dx':0, 'dy':-25}, # 上家通常
+TILE_IMG_FOLDER = './sysimg/tiles/'
+SCALE = 0.4
+OTHER_SCALE = 0.7
 
-    4: {
-        'size_x': 33, 'size_y': 59,
-        'x':250, 'y':350, 'dx':33, 'dy':0,
-        'new_dx':0, 'new_dy':50,
-        'rev_flag':0
-        }, # 自家河
-    5: {
-        'size_x': 44, 'size_y': 49, 
-        'x':690, 'y':170, 'dx':0, 'dy':40, 
-        'new_dx':-44, 'new_dy':0,
-        'rev_flag':1
-        }, # 下家河 逆
-    6: {
-        'size_x': 33, 'size_y': 59, 
-        'x':250, 'y':110, 'dx':33, 'dy':0, 
-        'new_dx':0, 'new_dy':50,
-        'rev_flag':1
-        }, # 対面河 逆
-    7: {
-        'size_x': 44, 'size_y': 49, 
-        'x':180, 'y':170, 'dx':0, 'dy':35, 
-        'new_dx':-44, 'new_dy':0,
-        'rev_flag':0
-        }, # 上家河
-}
+IMG_SIZE = {'size_x': int(90*SCALE), 'size_y': int(128*SCALE)}
+TILE_POS_HANDS = [{'x':80, 'y':SCREEN_SIZE[1]-IMG_SIZE['size_y']-10},
+                    {'x':SCREEN_SIZE[0]-IMG_SIZE['size_y'], 'y':SCREEN_SIZE[1]-80}, #1: 下家(右)
+                    {'x':SCREEN_SIZE[0]-80, 'y':0}, #2: 対面
+                    {'x':0, 'y':80}] #3: 上家(左)
+TILE_POS_RIVER = [{'x':250+30, 'y':350},
+                    {'x':SCREEN_SIZE[0]-180-IMG_SIZE['size_x'], 'y':SCREEN_SIZE[1]-170-IMG_SIZE['size_y']}, #1: 下家(右)
+                    {'x':SCREEN_SIZE[0]-250-IMG_SIZE['size_x'], 'y':SCREEN_SIZE[1]-350-IMG_SIZE['size_y']}, #2: 対面
+                    {'x':180, 'y':170+30}] #3: 上家(左)
+POPUP_MSG_POS = [0, 0, 100, 30]
 
-# TODO: 画像ナンバリングし直し
-IMG_NUM = {
-    4: 1,
-    5: 3,
-    6: 2,
-    7: 4
-}
 
 # 副露牌を管理するクラス
 class Furo:
-    def __init__(self, from_pos, tiles):
+    def __init__(self, idx, from_pos, tiles):
+        self.idx = idx
         self.from_pos = from_pos
         self.tiles = tiles
 
@@ -122,8 +96,8 @@ class TileSprites:
             xx += dx # imgtype: 0の画像の横の長さ
             yy += dy
 
-            if t >= 12:
-                xx += dx # imgtype: 0の画像の横の長さ
+            if t == tiles_num - 2:
+                xx += dx // 2 # imgtype: 0の画像の横の長さ
                 yy += dy
         
         self.xx = xx
@@ -140,6 +114,8 @@ class TileSprites:
         for i in range(len(self.tiles)-1, -1, -1):
             self.tiles[i].kill()
         self.tiles.clear()
+
+        #print('::: adjust', tiles_num)
 
         self.xx = self.x
         self.yy = self.y
@@ -191,7 +167,7 @@ class Hands:
         self.discarded_tiles_not_shown = []
     
     def sort_hands(self):
-        pass
+        self.tiles = sorted(self.tiles)
     
     def discard(self, tile):
         if tile not in self.tiles:
@@ -200,6 +176,7 @@ class Hands:
         
         self.discarded_tiles.append(tile)
         self.tiles.remove(tile)
+        self.sort_hands()
     
     def discard_to_not_shown(self, tile):
         if self.discarded_tiles[-1] != tile:
@@ -210,14 +187,16 @@ class Hands:
 
     def discard_idx(self, tile_idx):
         if tile_idx < 0 or len(self.tiles) <= tile_idx:
-            print('error: too big or too small idx players hand')
+            print('error: too big or too small idx players hand:', tile_idx)
             return
         
         self.discarded_tiles.append(self.tiles[tile_idx])
         del self.tiles[tile_idx]
+        self.sort_hands()
     
     def add(self, tile):
         self.tiles.append(tile)
+        self.sort_hands()
     
     def check_menzen(self, player_pos):
         flag = (len(self.pong_tiles) == 0 and len(self.chow_tiles) == 0)
@@ -226,13 +205,19 @@ class Hands:
                 flag = False
         return flag
     
-    def pong(self, tile, from_pos):
-        self.pong_tiles.append(Furo(from_pos, [tile for i in range(3)]))
+    def pong(self, idx, tile, from_pos):
+        print('pong:')
+        print(' -:', self.tiles)
+        self.pong_tiles.append(Furo(idx, from_pos, [tile for i in range(3)]))
         self.tiles.remove(tile)
         self.tiles.remove(tile)
+        print(' -:', self.tiles)
+        self.sort_hands()
     
-    def chow(self, tiles, from_pos):
-        self.chow_tiles.append(Furo(from_pos, tiles))
+    def chow(self, idx, tiles, from_pos):
+        print('chow:')
+        print(' -:', self.tiles)
+        self.chow_tiles.append(Furo(idx, from_pos, tiles))
 
         remove_count = 0
         for tile in tiles:
@@ -242,11 +227,13 @@ class Hands:
 
         if remove_count != 2:
             print('chow err')
+        print(' -:', self.tiles)
+        self.sort_hands()
     
-    def kong(self, tile, from_pos, self_flag=False, add=False):
+    def kong(self, idx, tile, from_pos, self_flag=False, add=False):
         print('kong: (self_flag, add):', self_flag, add)
+        print(' -:', self.tiles)
         
-
         if self_flag:
             if add: # 槍槓
                 idx = -1
@@ -265,7 +252,9 @@ class Hands:
             for i in range(3):
                 self.tiles.remove(tile)
 
-        self.kong_tiles.append(Furo(from_pos, [tile for i in range(4)]))
+        print(' -:', self.tiles)
+        self.kong_tiles.append(Furo(idx, from_pos, [tile for i in range(4)]))
+        self.sort_hands()
 
 
 
@@ -278,40 +267,76 @@ class Player:
         self.sprites = None
         self.riichi = riichi
 
+        self.furo_num = 0
+
         self.tenpai = tenpai
         self.tenpai_hai = []
 
         self.menzen = True
 
         if pos == 0:
-            size_x = IMG_SIZE[pos]['size_x']
-            size_y = IMG_SIZE[pos]['size_y']
-            x = IMG_SIZE[pos]['x']
-            y = IMG_SIZE[pos]['y']
+            size_x = IMG_SIZE['size_x']
+            size_y = IMG_SIZE['size_y']
+            x = TILE_POS_HANDS[0]['x']
+            y = TILE_POS_HANDS[0]['y']
         
             self.sprites = TileSprites(13, size_x, size_y, x, y, dx=size_x, dy=0)
  
     def pong(self, tile, from_pos):
-        self.hands.pong(tile, from_pos)
+        self.hands.pong(self.furo_num, tile, from_pos)
         self.menzen = False
         if self.pos == 0:
             self.sprites.adjust(len(self.hands.tiles))
+        
+        # テスト表示用
+        if self.pos == 0:
+            print('test show: pong', tile)
+        print('[pong', self.furo_num)
+        self.furo_num += 1
     
     def chow(self, tiles, from_pos):
-        self.hands.chow(tiles, from_pos)
+        self.hands.chow(self.furo_num, tiles, from_pos)
         self.menzen = False
         if self.pos == 0:
             self.sprites.adjust(len(self.hands.tiles))
+        
+        # テスト表示用
+        if self.pos == 0:
+            print('test show: chow', tile)
+        print('[chow', self.furo_num)
+        self.furo_num += 1
     
     def kong(self, tile, from_pos, add=False):
         if from_pos != self.pos: #ポンのときにmenzen=Falseされているため、槍槓時の判定不要
             self.menzen = False
-        
-        self.hands.kong(tile, from_pos, self_flag=(self.pos==from_pos), add=add)
+
+        # テスト表示用
+        if self.pos == 0:
+            print('test show: kong', tile)
+            
+        self.hands.kong(self.furo_num, tile, from_pos, self_flag=(self.pos==from_pos), add=add)
         if self.pos == 0:
             self.sprites.adjust(len(self.hands.tiles))
+        
+        if add:
+            pongs = self.hands.pong_tiles
+            remove_idx = -1
+            for pong_idx in range(len(pongs)):
+                if tile in pongs[pong_idx].tiles:
+                    remove_idx = pong_idx
+                    break
+            if remove_idx == -1:
+                print('err: cannot found add pong')
+            del self.hands.pong_tiles[remove_idx]
+
+        print('[kong', self.furo_num)
+        self.furo_num += 1
 
     def discard(self, tile):
+        # テスト表示用
+        if self.pos == 0:
+            print('test show: discard', tile)
+
         self.hands.discard(tile)
         if self.pos == 0:
             self.sprites.remove_one()
@@ -327,14 +352,21 @@ class Player:
         self.hands.sort_hands()
     
     def add(self, tile):
+        # テスト表示用
+        if self.pos == 0:
+            print('test show: add', tile)
         self.hands.add(tile)
         if self.pos == 0:
             self.sprites.add_one()
         self.hands.sort_hands()
+        
+        if self.pos == 0:
+            self.sprites.adjust(len(self.hands.tiles))
     
     def check_discard(self, pos):
         if self.sprites is not None:
             clicked_idx = self.sprites.checkall(pos)
+            print('clicked idx:', clicked_idx)
             if clicked_idx >= len(self.hands.tiles): #2重
                 return -1
             else:
@@ -346,140 +378,375 @@ class Player:
     # True: 面前 False: 面前でない
     def check_menzen(self):
         return self.menzen
-
-    
-    # 牌表示
-    # 0: player     1: 上家     2: 対面     3: 下家
-    def show_tiles(self, screen):
-
-        # テスト用
-        print('=== show_tiles player['+str(self.pos)+'] ===')
-        print('\t', nanno_koma_list(self.hands.tiles))
-        print('\tfuro:')
-        if len(self.hands.pong_tiles) != 0:
-            print('\t\tpong:')
-            for pong_tiles in self.hands.pong_tiles:
-                print('\t\t\tfrom_pos:', pong_tiles.from_pos)
-                print('\t\t\t[', pong_tiles.tiles, ']')
-        if len(self.hands.chow_tiles) != 0:
-            print('\t\tchow:')
-            for pong_tiles in self.hands.chow_tiles:
-                print('\t\t\tfrom_pos:', pong_tiles.from_pos)
-                print('\t\t\t[', pong_tiles.tiles, ']')
-        if len(self.hands.kong_tiles) != 0:
-            print('\t\tkong:')
-            for pong_tiles in self.hands.kong_tiles:
-                print('\t\t\tfrom_pos:', pong_tiles.from_pos)
-                print('\t\t\t[', pong_tiles.tiles, ']')
-        print()
-        # テスト用ここまで
-
-        pos = self.pos
-        tiles = self.hands.tiles
         
-        bg_top = min(IMG_SIZE[pos]['y'], IMG_SIZE[pos]['y']+IMG_SIZE[pos]['dy']*13+IMG_SIZE[pos]['dy'])
-        bg_left = min(IMG_SIZE[pos]['x'], IMG_SIZE[pos]['x']+IMG_SIZE[pos]['dx']*13+IMG_SIZE[pos]['dx'])
-        bg_height = abs(IMG_SIZE[pos]['y']+IMG_SIZE[pos]['dy']*13+IMG_SIZE[pos]['dy'])
-        bg_width = abs(IMG_SIZE[pos]['x']+IMG_SIZE[pos]['dx']*13+IMG_SIZE[pos]['dx'])
+# =======================
+# 表示
+# =======================
+# open_pos: 手牌を公開するpos
+def show_all_tiles(screen, players, open_pos=[], test=False):
 
-        screen.fill(POS_COLORS[pos], (bg_left, bg_top, bg_width, bg_height))
+    if test:
+        # テスト用テキスト表示
+        print('==== show tiles ====')
+        for i in range(len(players)):
+            print(' - player['+str(i)+']')
+            print('\t', nanno_koma_list(players[i].hands.tiles))
+            print('\tfuro:')
+            if len(players[i].hands.pong_tiles) != 0:
+                print('\t\tpong:')
+                for pong_tiles in players[i].hands.pong_tiles:
+                    print('\t\t\tfrom_pos:', pong_tiles.from_pos)
+                    print('\t\t\t[', pong_tiles.tiles, ']')
+            if len(players[i].hands.chow_tiles) != 0:
+                print('\t\tchow:')
+                for pong_tiles in players[i].hands.chow_tiles:
+                    print('\t\t\tfrom_pos:', pong_tiles.from_pos)
+                    print('\t\t\t[', pong_tiles.tiles, ']')
+            if len(players[i].hands.kong_tiles) != 0:
+                print('\t\tkong:')
+                for pong_tiles in players[i].hands.kong_tiles:
+                    print('\t\t\tfrom_pos:', pong_tiles.from_pos)
+                    print('\t\t\t[', pong_tiles.tiles, ']')
+            print()
+
+        print('==== show river ====')
+        for i in range(len(players)):
+            print(' - player['+str(i)+']')
+            print(nanno_koma_list(players[i].hands.discarded_tiles))
+            print()
+        # テスト用テキスト表示 ここまで
+        return
+
+
+    # 描画領域を塗りつぶす(呼ぶたびにリセットされるように)
+    for i in range(4):
+        if i == 0:
+            bg_hand_left = TILE_POS_HANDS[i]['x']
+            bg_hand_top = TILE_POS_HANDS[i]['y']
+            bg_hand_width = round(IMG_SIZE['size_x'] * 14.5)
+            bg_hand_height = IMG_SIZE['size_y']
+
+            bg_river_left = TILE_POS_RIVER[i]['x']
+            bg_river_top = TILE_POS_RIVER[i]['y']
+            bg_river_width = IMG_SIZE['size_x'] * 6
+            bg_river_height = IMG_SIZE['size_y'] * 4
+        elif i == 1:
+            bg_hand_left = TILE_POS_HANDS[i]['x']
+            bg_hand_top = TILE_POS_HANDS[i]['y']
+            bg_hand_width = IMG_SIZE['size_y']
+            bg_hand_height = IMG_SIZE['size_x'] * 14
+
+            bg_river_left = TILE_POS_RIVER[i]['x']
+            bg_river_top = TILE_POS_RIVER[i]['y'] - 5 * IMG_SIZE['size_x']
+            bg_river_width = IMG_SIZE['size_y'] * 4
+            bg_river_height = IMG_SIZE['size_x'] * 6
+        elif i == 2:
+            bg_hand_left = TILE_POS_HANDS[i]['x']
+            bg_hand_top = TILE_POS_HANDS[i]['y']
+            bg_hand_width = IMG_SIZE['size_x'] * 14
+            bg_hand_height = IMG_SIZE['size_y']
+
+            bg_river_left = TILE_POS_RIVER[i]['x'] - 5 * IMG_SIZE['size_x']
+            bg_river_top = TILE_POS_RIVER[i]['y'] - 3 * IMG_SIZE['size_y']
+            bg_river_width = IMG_SIZE['size_x'] * 6
+            bg_river_height = IMG_SIZE['size_y'] * 4
+        elif i == 3:
+            bg_hand_left = TILE_POS_HANDS[i]['x']
+            bg_hand_top = TILE_POS_HANDS[i]['y']
+            bg_hand_width = IMG_SIZE['size_y']
+            bg_hand_height = IMG_SIZE['size_x'] * 14
+
+            bg_river_left = TILE_POS_RIVER[i]['x'] - 3 * IMG_SIZE['size_y']
+            bg_river_top = TILE_POS_RIVER[i]['y']
+            bg_river_width = IMG_SIZE['size_y'] * 4
+            bg_river_height = IMG_SIZE['size_x'] * 6
         
-        size_x = IMG_SIZE[pos]['size_x']
-        size_y = IMG_SIZE[pos]['size_y']
-        x = IMG_SIZE[pos]['x']
-        y = IMG_SIZE[pos]['y']
-        dx = IMG_SIZE[pos]['dx']
-        dy = IMG_SIZE[pos]['dy']
+        pos_color = (200,200,200)#POS_COLORS[i]
+        screen.fill(pos_color, (bg_hand_left, bg_hand_top, bg_hand_width, bg_hand_height))
+        screen.fill(pos_color, (bg_river_left, bg_river_top, bg_river_width, bg_river_height))
 
-        if pos == 0: # player
-            for i in range(len(self.hands.tiles)):
-                timgpath = "sysimg/open_tiles/"+TILES[self.hands.tiles[i]]+"1.gif"
-                timg = pygame.image.load(timgpath)
-                screen.blit(timg, (x, y))
-                x += size_x
-                if i == len(self.hands.tiles) - 2:
-                    x += size_x
-                
-        else:
-            if pos == 1: # 上家伏せ牌表示
-                timgpath = "sysimg/ms/p_bk_8.png"
-            elif pos == 2: # 対面伏せ牌表示
-                timgpath = "sysimg/ms/p_bk_5.gif"
-            elif pos == 3: # 下家伏せ牌表示
-                timgpath = "sysimg/ms/p_bk_9.png"
+    # posによる回転角度
+    angles = [0, 90, 180, -90]
+
+    # 手牌の表示
+    for i in range(len(players)):
+        pos = players[i].pos
+        open_flag = (pos in open_pos) or (pos == 0)
+        angle = angles[pos]
+        tile_pos = [TILE_POS_HANDS[pos]['x'], TILE_POS_HANDS[pos]['y']]
+        scale = 1.0
+        if pos != 0:
+            scale *= OTHER_SCALE
+
+        for tile_idx in range(len(players[i].hands.tiles)):
+            if open_flag:
+                timgpath = TILE_IMG_FOLDER+str(players[i].hands.tiles[tile_idx])+'.png'
             else:
-                print("error show_tiles n", file=sys.stderr)
+                timgpath = TILE_IMG_FOLDER+'34.png'
             
             timg = pygame.image.load(timgpath)
-            for i in range(len(self.hands.tiles)):
-                screen.blit(timg, (x, y))
-                x += dx
-                y += dy
+            scaled_timg = pygame.transform.rotozoom(timg, angle, SCALE*scale)
+            screen.blit(scaled_timg, tuple(tile_pos))
+
+            if pos == 0:
+                tile_pos[0] += round(IMG_SIZE['size_x'] * scale)
+            elif pos == 1:
+                tile_pos[1] -= round(IMG_SIZE['size_x'] * scale)
+            elif pos == 2:
+                tile_pos[0] -= round(IMG_SIZE['size_x'] * scale)
+            elif pos == 3:
+                tile_pos[1] += round(IMG_SIZE['size_x'] * scale)
+
+            if pos == 0 and tile_idx == len(players[i].hands.tiles)-2:
+                tile_pos[0] += IMG_SIZE['size_x'] // 2
     
-    # 河表示
-    # 0: player     1: 下家     2: 対面     3: 下家
-    def show_rivers(self, screen):
+    # 河の表示
+    for i in range(len(players)):
+        pos = players[i].pos
+        angle = angles[pos]
+        tile_pos = [TILE_POS_RIVER[pos]['x'], TILE_POS_RIVER[pos]['y']]
+        scale = OTHER_SCALE
 
-        # テスト用
-        print('--- show_rivers player['+str(self.pos)+']')
-        print(nanno_koma_list(self.hands.discarded_tiles))
-        print()
-        # テスト用ここまで
+        cnt = 0
+        for tile_idx in range(len(players[i].hands.discarded_tiles)):
+            timgpath = TILE_IMG_FOLDER+str(players[i].hands.discarded_tiles[tile_idx])+'.png'
+            timg = pygame.image.load(timgpath)
+            scaled_timg = pygame.transform.rotozoom(timg, angle, SCALE*scale)
+            screen.blit(scaled_timg, tuple(tile_pos))
+            cnt += 1
 
-        pos = self.pos
-        pos += 4
+            if cnt == 6:
+                if pos == 0:
+                    tile_pos[0] = TILE_POS_RIVER[pos]['x']
+                    tile_pos[1] += round(IMG_SIZE['size_y'] * scale)
+                elif pos == 1:
+                    tile_pos[0] += round(IMG_SIZE['size_y'] * scale)
+                    tile_pos[1] = TILE_POS_RIVER[pos]['y']
+                elif pos == 2:
+                    tile_pos[0] = TILE_POS_RIVER[pos]['x']
+                    tile_pos[1] -= round(IMG_SIZE['size_y'] * scale)
+                elif pos == 3:
+                    tile_pos[0] -= round(IMG_SIZE['size_y'] * scale)
+                    tile_pos[1] = TILE_POS_RIVER[pos]['y']
+                cnt = 0
+            else:
+                if pos == 0:
+                    tile_pos[0] += round(IMG_SIZE['size_x'] * scale)
+                elif pos == 1:
+                    tile_pos[1] -= round(IMG_SIZE['size_x'] * scale)
+                elif pos == 2:
+                    tile_pos[0] -= round(IMG_SIZE['size_x'] * scale)
+                elif pos == 3:
+                    tile_pos[1] += round(IMG_SIZE['size_x'] * scale)
+    
+    # 副露牌の表示
+    from_poses = [[3,2,1,0],[2,3,0,1],[1,0,3,2],[0,1,2,3]]#4番目の数字はダミー,被らないように
+    for i in range(len(players)):
+        pos = players[i].pos
+        angle = angles[pos]
+        scale = 1.0
+        if pos != 0:
+            scale *= OTHER_SCALE
 
-        x = IMG_SIZE[pos]['x']
-        y = IMG_SIZE[pos]['y']
-        dx = IMG_SIZE[pos]['dx']
-        dy = IMG_SIZE[pos]['dy']
-        new_dx = IMG_SIZE[pos]['new_dx']
-        new_dy = IMG_SIZE[pos]['new_dy']
-        xx = x
-        yy = y
-        rev_flag = IMG_SIZE[pos]['rev_flag']
+        tile_pos = [TILE_POS_HANDS[pos]['x'], TILE_POS_HANDS[pos]['y']]
 
-        # posの描画領域を白で塗りつぶす
-        #"""
-        bg_top = min(IMG_SIZE[pos]['y'], IMG_SIZE[pos]['y']+IMG_SIZE[pos]['dy']*13+IMG_SIZE[pos]['dy'])
-        bg_left = min(IMG_SIZE[pos]['x'], IMG_SIZE[pos]['x']+IMG_SIZE[pos]['dx']*13+IMG_SIZE[pos]['dx'])
-        bg_height = abs(IMG_SIZE[pos]['y']+IMG_SIZE[pos]['dy']*13+IMG_SIZE[pos]['dy'])
-        bg_width = abs(IMG_SIZE[pos]['x']+IMG_SIZE[pos]['dx']*13+IMG_SIZE[pos]['dx'])
+        if pos == 0:
+            tile_pos[0] = SCREEN_SIZE[0] - tile_pos[0]
+        elif pos == 1:
+            tile_pos[1] = SCREEN_SIZE[1] - tile_pos[1]
+        elif pos == 2:
+            tile_pos[0] = SCREEN_SIZE[0] - tile_pos[0]
+        elif pos == 3:
+            tile_pos[1] = SCREEN_SIZE[1] - tile_pos[1]
 
-        screen.fill(POS_COLORS[self.pos], (bg_left, bg_top, bg_width, bg_height))
-        #"""
-        
-        if rev_flag:
-            xx -= dx * (6 - len(self.hands.discarded_tiles) % 6)
-            yy -= dy * (4 - len(self.hands.discarded_tiles) // 4)
-            y = yy
-            cnt = len(self.hands.discarded_tiles) % 6
-            for t in reversed(self.hands.discarded_tiles):
-                print(t)
-                timgpath = "sysimg/open_tiles/" + TILES[t] + str(IMG_NUM[pos]) + ".gif"
+        cnt = 0
+        for furo_idx in range(players[i].furo_num):
+
+            tiles = []
+            from_pos = -1
+
+            for pong in players[i].hands.pong_tiles:
+                if pong.idx == furo_idx:
+                    tiles = pong.tiles.copy()
+                    from_pos = pong.from_pos
+
+            for pong in players[i].hands.chow_tiles:
+                if pong.idx == furo_idx:
+                    tiles = pong.tiles.copy()
+                    from_pos = pong.from_pos
+            
+            for pong in players[i].hands.kong_tiles:
+                if pong.idx == furo_idx:
+                    tiles = pong.tiles.copy()
+                    from_pos = pong.from_pos
+                    if from_pos == pos:
+                        tiles[0] = 34
+                        tiles[3] = 34
+            
+            for tile_idx in range(len(tiles)):
+                timgpath = TILE_IMG_FOLDER+str(tiles[tile_idx])+'.png'
                 timg = pygame.image.load(timgpath)
-                screen.blit(timg, (xx, yy))
-                cnt += 1
-                if cnt % 6 == 0:
-                    xx = x + new_dx * (cnt // 6)
-                    yy = y + new_dy * (cnt // 6)
+                
+                if from_pos != pos and from_pos == from_poses[pos][tile_idx]:
+                    
+                    tmp_angle = angle
+                    if pos == 0 or pos == 2:
+                        tmp_angle = 90
+                    else:
+                        tmp_angle = 0
+                    scaled_timg = pygame.transform.rotozoom(timg, tmp_angle, SCALE*scale)
+                    
+                    if pos == 0:
+                        tile_pos[0] -= round(IMG_SIZE['size_y'] * scale)
+                    elif pos == 1:
+                        tile_pos[1] += round(IMG_SIZE['size_y'] * scale)
+                    elif pos == 2:
+                        tile_pos[0] += round(IMG_SIZE['size_y'] * scale)
+                    elif pos == 3:
+                        tile_pos[1] -= round(IMG_SIZE['size_y'] * scale)
                 else:
-                    xx += dx
-                    yy += dy
+                    scaled_timg = pygame.transform.rotozoom(timg, angle, SCALE*scale)
+                    screen.blit(scaled_timg, tuple(tile_pos))
+                    
+                    if pos == 0:
+                        tile_pos[0] -= round(IMG_SIZE['size_x'] * scale)
+                    elif pos == 1:
+                        tile_pos[1] += round(IMG_SIZE['size_x'] * scale)
+                    elif pos == 2:
+                        tile_pos[0] += round(IMG_SIZE['size_x'] * scale)
+                    elif pos == 3:
+                        tile_pos[1] -= round(IMG_SIZE['size_x'] * scale)
+
+# 最もあまりが少なくなるように分解する
+
+def bunkai(tiles):
+    print('bunkaied -------------------', len(tiles), tiles)
+    sorted_tiles = sorted(tiles) # ダミー入り
+    set_tiles = sorted(list(set(sorted_tiles)))
+
+    if len(tiles) == 1:
+        return (0, tiles)
+    elif len(tiles) == 2:
+        if tiles[0] == tiles[1]:
+            return (1, tiles)
         else:
-            cnt = 0
-            for t in self.hands.discarded_tiles:
-                timgpath = "sysimg/open_tiles/" + TILES[t] + str(IMG_NUM[pos]) + ".gif"
-                timg = pygame.image.load(timgpath)
-                screen.blit(timg, (xx, yy))
-                cnt += 1
-                if cnt % 6 == 0:
-                    xx = x + new_dx * (cnt // 6)
-                    yy = y + new_dy * (cnt // 6)
-                else:
-                    xx += dx
-                    yy += dy
+            return (0, tiles)
 
+    tehai = tiles.copy()
+    bunkai_idx = 0
+    bunkai_tiles = []
+    tensu = 0
+    
+    max_tensu = 0
+    max_bunkai = []
+
+    # 字牌
+    for jihai in [0, 10, 20, 30, 31, 32, 33]:
+        if jihai not in tehai:
+            continue
+        
+        bunkai_t = jihai
+
+        cnt = tehai.count(bunkai_t)
+        if cnt != 0:
+            if cnt >= 3:
+                tensu += 2
+                cnt = 2
+            elif cnt >= 2:
+                tensu += 1
+                cnt = 1
+            
+            bunkai_tiles.append([bunkai_t for i in range(cnt)])
+
+            for i in range(cnt):
+                tehai.remove(bunkai_t)
+            continue
+    
+    bunkai_idx = 0
+    # 数牌
+    while len(tehai) != 0 and bunkai_idx < len(set_tiles):
+        bunkai_t = set_tiles[bunkai_idx]
+        bunkai_idx += 1
+
+        if bunkai_t not in tehai:
+            continue
+        
+        # 面子を取る準備
+        mentsu_kouho = []
+        print('suhai ==============', bunkai_t%10)
+        if 2 <= (bunkai_t%10) <= 8:
+            mentsu_kouho.append([bunkai_t-1, bunkai_t, bunkai_t+1])
+        if 1 <= (bunkai_t%10) <= 7:
+            mentsu_kouho.append([bunkai_t, bunkai_t+1, bunkai_t+2])
+        if 3 <= (bunkai_t%10) <= 9:
+            mentsu_kouho.append([bunkai_t-2, bunkai_t-1, bunkai_t])
+        mentsu_kouho.append([bunkai_t for i in range(3)])
+        
+        # 面子を取る
+        max_tmp_tensu = 0
+        max_tmp_mentsu = []
+        max_tmp_bunkai = []
+
+        for mentsu in mentsu_kouho:
+            # [1, 2, 3], [1, 1, 1]
+
+            cnt = 0
+
+            if mentsu[0] == mentsu[1]:
+                cnt = tehai.count(mentsu[0])
+            else:
+                for m in mentsu:
+                    if m in tehai:
+                        cnt += 1
+            removed_tiles = []
+            if cnt >= 3:
+                print(mentsu)
+                print(tehai)
+                
+                for m in mentsu:
+                    tehai.remove(m)
+                    removed_tiles.append(m)
+                
+                tmp_tensu, tmp_bunkai = bunkai(tehai)
+                tmp_tensu += 2
+
+                if tmp_tensu > max_tmp_tensu:
+                    max_tmp_tensu = tmp_tensu
+                    max_tmp_mentsu = mentsu
+                    max_tmp_bunkai = tmp_bunkai
+                
+            elif cnt >= 2:
+                print(mentsu)
+                print(tehai)
+
+                for m in mentsu:
+                    if m in tehai:
+                        tehai.remove(m)
+                        removed_tiles.append(m)
+                
+                tmp_tensu, tmp_bunkai = bunkai(tehai)
+                tmp_tensu += 1
+                
+                if tmp_tensu > max_tmp_tensu:
+                    max_tmp_tensu = tmp_tensu
+                    max_tmp_mentsu = mentsu
+                    max_tmp_bunkai = tmp_bunkai
+
+            for m in removed_tiles:
+                tehai.append(m)
+            removed_tiles = []
+        
+        if len(max_tmp_bunkai) != 0:
+            for m in max_tmp_mentsu:
+                if m in tehai:
+                    tehai.remove(m)
+            max_tensu += max_tmp_tensu
+            bunkai_tiles.append(max_tmp_bunkai)
+        else:
+            tehai.remove(bunkai_t)
+            bunkai_tiles.append([bunkai_t])
+
+    return (tensu+max_tensu, bunkai_tiles)
 
 # シャンテン数を返却
 def check_hands(hands, menzen):
@@ -489,24 +756,22 @@ def check_hands(hands, menzen):
     # Dragons   : 0, 10, 20 : 白，ハツ，中
     # Winds     : 30, 31, 32, 33 : 東，南，西，北
 
-    # 0ならアガリ
-    # 1ならテンパイ
-    # 2以上ならn-1シャンテン
+    # 0ならテンパイ(1から変更)
     
     shanten_num = 8
 
     sorted_tiles = sorted(hands.tiles)
     set_tiles = sorted(list(set(hands.tiles)))
+    count_tiles = [sorted_tiles.count(tile) for tile in set_tiles]
     
     # ダミー追加
     if len(sorted_tiles) == 14:
         pass
-    elif len(sorted_tiles) == 13:
-        sorted_tiles.append(100)
-        set_tiles.append(100)
+    elif len(sorted_tiles) <= 13:
+        while len(sorted_tiles) < 14:
+            sorted_tiles.append(100)
     
-    count_tiles = [sorted_tiles.count(tile) for tile in set_tiles]
-
+    
     #menzen = player.check_menzen()
 
     # 国士無双の判定
@@ -549,7 +814,23 @@ def check_hands(hands, menzen):
     3. すべての点数を足して、8点から引く
     4. 引き算の答えがシャンテン数
     """
-    normal = 8
+
+    print('======= bunkai =======', hands.tiles)
+    tensu, bunkaied_tiles = bunkai(hands.tiles)
+    print(tensu, bunkaied_tiles)
+    for furo in hands.pong_tiles:
+        bunkaied_tiles.append(furo.tiles)
+    for furo in hands.chow_tiles:
+        bunkaied_tiles.append(furo.tiles)
+
+    tensu = 0
+    # TODO: 点数が高くなるように
+    for bunkai_tile in bunkaied_tiles:
+        if len(bunkai_tile) == 3:
+            tensu += 2
+        elif len(bunkai_tile) == 2:
+            tensu += 1
+    normal = 8 - tensu
 
     return min(kokushi, min(chitoitsu, normal))
 
@@ -569,9 +850,6 @@ def tenpai_hai_check(player):
     return hai_list
 
 # 役を確認
-# 戻り値: [0, 1, 1, 0, 0]
-# 役番号の配列　その役が有効なら1 なしなら0
-# ドラは1以上の値が入る場合もあり
 # 点数計算、集計の場面で使用される
 
 """
@@ -639,7 +917,8 @@ def tenpai_hai_check(player):
 # シャンテン数0(?)のとき限定
 # ba_windが東かつ約牌が東の場合や、親の場合は約牌を複数追加する
 # ドラが複数なことに注意
-def check_yaku(player, last_tile, ba_wind, bonus_tiles, tumo=True):
+# last_tileはplayer.hands.tilesの中に含まれることに注意
+def check_yaku(player, last_tile, ba_wind, bonus_tiles, tumo=True, rinshan=False):
 
     sorted_tiles = sorted(player.hands.tiles)
     set_tiles = sorted(list(set(player.hands.tiles)))
@@ -651,6 +930,9 @@ def check_yaku(player, last_tile, ba_wind, bonus_tiles, tumo=True):
 
     # テンパイ状態でないなら[]を返却
     if check_hands(player.hands, player.menzen) != 0:
+        return []
+    # フリテンなら[]を返却
+    if tumo == False and (last_tile in player.hands.discarded_tiles or last_tile in player.hands.discarded_tiles_not_shown):
         return []
     
     if player.riichi == 0:
@@ -674,32 +956,113 @@ def check_yaku(player, last_tile, ba_wind, bonus_tiles, tumo=True):
             yaku.append(29) # 国士無双十三面待ち
         elif len(tmp_tiles)==1 and tmp_tiles[0] in kokushi_tiles and last_tile in kokushi_tiles and last_tile != tmp_tiles[0]:
             yaku.append(28) # 国士無双
+        
+        # 九蓮宝燈 36
     
     # 大三元
-    if daisangen in set_tiles:
-    #player.hands.tiles = tiles
-    #self.wind = wind
-    #self.pung[i].tiles
-    #self.pung[i].from
-    #self.chow[i].tiles
-    #self.kong[i].tiles
-        pass
+    daisangen = True
+    for tile in [0, 10, 20]:
+        if tile in set_tiles and (count_tiles[set_tiles.index(tile)] >= 3 or (count_tiles[set_tiles.index(tile)] >= 2 and tile == last_tile)):
+            pass
+        else:
+            sangenhai_flag = False
+            for tile_check in player.hands.pong_tiles:
+                if tile in tile_check.tiles:
+                    sangenhai_flag = True
+                    break
+            for tile_check in player.hands.kong_tiles:
+                if tile in tile_check.tiles:
+                    sangenhai_flag = True
+                    break
+            if sangenhai_flag == False:
+                daisangen = False
+                break
+    if daisangen:
+        yaku.append(30)
 
-    
-#31: 四喜和
-#32: 字一色
-#33: 清老頭
-#34: 地和【面前】
-#35: 緑一色
-#36: 九蓮宝燈【面前】
-#37: 四槓子
-#38: 天和【面前】
+    #31: 四喜和
+    #32: 字一色
+    #33: 清老頭
+    #35: 緑一色
+    #37: 四槓子
     
     # 役満の場合は判定終了
     if len(yaku) != 0:
         return yaku
 
+    
     # 一般の役
+
+    # 刻子に分解する
+    kotsus = []
+    for furo in player.hands.pong_tiles:
+        kotsus.append(furo.tiles)
+    for furo in player.hands.chow_tiles:
+        kotsus.append(furo.tiles)
+    for furo in player.hands.kong_tiles:
+        kotsus.append(furo.tiles)
+    print('kotsus:', kotsus)
+
+    max_hansuu = 0
+    # パターンの数だけ繰り返し
+
+    # 1ハン
+    # 0: 立直
+    if player.riichi == 1:
+        yaku.append(0)
+
+    # 1: 役牌
+    # 2: たんやおちゅー
+
+    # 3: 平和【面前】
+    if menzen:
+        pass
+    
+    # 4: 面前自摸
+    if menzen and tumo:
+        yaku.append(4)
+    
+    # 5: 一発 #なし
+
+    # 6: 一盃口【面前】
+    if menzen:
+        pass
+
+    # 7: ほうていろん #main
+    # 8: ほうていつも #main
+
+    # 9: 嶺上開花
+    if rinshan:
+        yaku.append(9)
+
+    # 10: ダブル立直
+    if player.riichi == 0:
+        yaku.append(10)
+    
+    # 11: 槍槓
+
+    # 2ハン
+    # 12: 対々和
+    # 13: 三色同順
+    # 14: 七対子【面前】
+    # 15: 一気通貫【鳴き-1】
+    # 16: 混全帯么九【鳴き-1】
+    # 17: 三暗刻
+    # 18: 小三元
+    # 19: 混老頭
+    # 20: 三色同刻
+    # 21: 三槓子
+    # 22: 三色同順【鳴き-1】
+
+    # 3ハン
+    # 23: ホンイツ【鳴き-1】
+    # 24: 純全帯么九【鳴き-1】
+    # 25: 二盃口【面前】
+
+    # 6ハン
+    # 26: 清一色【鳴き-1】
+
+    # 40: ドラ
     return yaku
 
 
@@ -709,7 +1072,7 @@ def check_yaku(player, last_tile, ba_wind, bonus_tiles, tumo=True):
 # ロンアガリの場合、[ロンされた人が親の場合に徴収する点数, 子の場合に徴収する点数]
 # ↑自分が親かどうかによって変動する
 def calc_points(yaku, oya=False, tumo=False):
-    return 19
+    return [19,19]
 
 # 役名を返却
 def yaku_name(yaku_num):
@@ -791,7 +1154,25 @@ def yaku_name(yaku_num):
         yaku_name = "四槓子"
     elif yaku_num == 38:
         yaku_name = "天和"
+    elif yaku_num == 39:
+        yaku_name = "流局"
+    elif yaku_num == 40:
+        yaku_name = "ドラ"
     return yaku_name
+
+def yaku_names(yaku_list):
+    yakunames = ''
+    for yaku in yaku_list:
+        if yaku_list[0] != yaku:
+            yakunames += ', '
+        yakuname = yaku_name(yaku)
+        yakunames += yakuname
+    return yakunames
+
+def popup(screen, msg, font):
+
+    print(msg)
+    #POPUP_MSG_POS
 
 # ゲームの変数をここで保存するかどうか考え中
 # main.pyで直接管理してもいいかも 
@@ -806,14 +1187,21 @@ class Scrap:
     
     # どの牌を捨てるか,idx
     # -1の場合、アガリ
-    def think(self, hands):
-        idx = random.randint(0, len(hands.tiles)-1)
+    def think(self, player, tile, ba_wind, bonus_tiles):
+        idx = random.randint(0, len(player.hands.tiles)-1)
+        
         # 役満てんぱいの場合上がるように
+        yaku = check_yaku(player, tile, ba_wind, bonus_tiles)
+        for y in yaku:
+            if 12 <= y <= 38:
+                return -1
+
         # あとはシャンテン数*はんすうに応じて判定させる?
 
         # てんぱいなら立直も候補に
-        return hands.tiles[idx]
+        return player.hands.tiles[idx]
     
-    def think_furo(self, hands, discard_tile):
+    def think_furo(self, hands, discard_tile, tumo=True):
+        # tumo == Trueの場合, discard_tileがhands.tilesに含まれている
         flag = random.randint(0, 1)
         return flag
