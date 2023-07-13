@@ -30,3 +30,7 @@
 
 ## 1. このゲームは何？
 麻雀を楽しむゲームです
+
+# 開発環境
+Python3.5
+pygame(conda install -c cogsci pygame), pyopengl, opencv-python(pip), opencv-contrib-python(pip), pypiwin32(pip)
